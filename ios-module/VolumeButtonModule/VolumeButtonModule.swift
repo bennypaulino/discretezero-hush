@@ -8,7 +8,6 @@ class VolumeButtonModule: RCTEventEmitter {
 
   private var audioSession: AVAudioSession?
   private var volumeView: MPVolumeView?
-  private var volumeObservation: NSKeyValueObservation?
   private var lastVolume: Float = 0.5
   private var isObserving: Bool = false
 
@@ -69,37 +68,71 @@ class VolumeButtonModule: RCTEventEmitter {
       }
     }
 
-    // Observe volume changes using KVO on AVAudioSession
-    volumeObservation = audioSession?.observe(\.outputVolume, options: [.new, .old]) { [weak self] session, change in
-      guard let self = self else { return }
-      guard let newVolume = change.newValue else { return }
+    // Listen for system volume change notifications
+    // This fires on button press even when volume is at min/max limits
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(systemVolumeDidChange),
+      name: NSNotification.Name(rawValue: "AVSystemController_SystemVolumeDidChangeNotification"),
+      object: nil
+    )
 
-      let oldVolume = self.lastVolume
+    NSLog("[VolumeButtonModule] Volume monitoring active (system notification)")
+  }
 
-      // Detect Volume UP press (volume increased)
+  // System volume change notification handler
+  // This fires on hardware button press regardless of whether volume actually changed
+  @objc private func systemVolumeDidChange(notification: NSNotification) {
+    guard let userInfo = notification.userInfo else { return }
+
+    // Get the new volume from the notification
+    let newVolume = audioSession?.outputVolume ?? lastVolume
+    let oldVolume = lastVolume
+
+    // Check if this was an explicit volume change (hardware button press)
+    // The notification fires for all volume changes, but we only want hardware buttons
+    if let reason = userInfo["AVSystemController_AudioVolumeChangeReasonNotificationParameter"] as? String,
+       reason == "ExplicitVolumeChange" {
+
+      // Detect direction based on volume change
       if newVolume > oldVolume {
-        NSLog("[VolumeButtonModule] Volume UP detected: %f -> %f", oldVolume, newVolume)
+        NSLog("[VolumeButtonModule] Volume UP detected: %f -> %f (system notification)", oldVolume, newVolume)
         self.sendEvent(withName: "onVolumeButtonPress", body: ["direction": "up"])
-      }
-      // Detect Volume DOWN press (volume decreased)
-      else if newVolume < oldVolume {
-        NSLog("[VolumeButtonModule] Volume DOWN detected: %f -> %f", oldVolume, newVolume)
+      } else if newVolume < oldVolume {
+        NSLog("[VolumeButtonModule] Volume DOWN detected: %f -> %f (system notification)", oldVolume, newVolume)
         self.sendEvent(withName: "onVolumeButtonPress", body: ["direction": "down"])
+      } else {
+        // CRITICAL: Button was pressed but volume didn't change (at min/max limit)
+        // Check notification category to determine which button was pressed
+        if let category = userInfo["AVSystemController_AudioCategoryNotificationParameter"] as? String {
+          NSLog("[VolumeButtonModule] Button pressed at volume limit (volume: %f, category: %@)", newVolume, category)
+
+          // At volume limit: if volume is very low, assume DOWN was pressed; if high, assume UP
+          // This is a fallback - ideally we'd detect the actual button pressed
+          if newVolume <= 0.05 {
+            NSLog("[VolumeButtonModule] Volume DOWN detected at minimum limit")
+            self.sendEvent(withName: "onVolumeButtonPress", body: ["direction": "down"])
+          } else if newVolume >= 0.95 {
+            NSLog("[VolumeButtonModule] Volume UP detected at maximum limit")
+            self.sendEvent(withName: "onVolumeButtonPress", body: ["direction": "up"])
+          }
+        }
       }
 
       // Update last known volume
-      self.lastVolume = newVolume
+      lastVolume = newVolume
     }
-
-    NSLog("[VolumeButtonModule] Volume monitoring active")
   }
 
   private func cleanup() {
     isObserving = false
 
-    // Remove volume observation
-    volumeObservation?.invalidate()
-    volumeObservation = nil
+    // Remove notification observer
+    NotificationCenter.default.removeObserver(
+      self,
+      name: NSNotification.Name(rawValue: "AVSystemController_SystemVolumeDidChangeNotification"),
+      object: nil
+    )
 
     // Remove hidden volume view
     DispatchQueue.main.async { [weak self] in
