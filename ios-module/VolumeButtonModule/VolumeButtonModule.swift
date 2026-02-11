@@ -123,6 +123,13 @@ class VolumeButtonModule: RCTEventEmitter {
     cleanup()
   }
 
+  // Manual initialization method (called from JavaScript to force setup)
+  @objc
+  func initialize() {
+    NSLog("[VolumeButtonModule] initialize() called explicitly from JavaScript")
+    setupVolumeMonitoring()
+  }
+
   override func supportedEvents() -> [String]! {
     return ["onVolumeButtonPress", "onVolumeButtonError"]
   }

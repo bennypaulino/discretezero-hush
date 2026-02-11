@@ -45,6 +45,15 @@ try {
     console.log('[VolumeButtonBridge] ✅ Native module loaded successfully');
     console.log('[VolumeButtonBridge] Platform:', Platform.OS);
     console.log('[VolumeButtonBridge] Module methods:', Object.keys(VolumeButtonModule));
+
+    // CRITICAL: Manually initialize the Swift module to start volume monitoring
+    // RCTEventEmitter's startObserving() isn't called automatically in all cases
+    if (VolumeButtonModule.initialize) {
+      console.log('[VolumeButtonBridge] Calling initialize() to start volume monitoring');
+      VolumeButtonModule.initialize();
+    } else {
+      console.warn('[VolumeButtonBridge] ⚠️ initialize() method not found - volume monitoring may not work');
+    }
   } else {
     console.warn('[VolumeButtonBridge] ⚠️ Native module NOT found in NativeModules');
     console.log('[VolumeButtonBridge] Available modules:', Object.keys(NativeModules).filter(k => k.includes('Volume') || k.includes('Button')));
@@ -91,6 +100,14 @@ export function addVolumeButtonListener(
   }
 
   console.log('[VolumeButtonBridge] ✅ Adding volume button listener');
+
+  // CRITICAL: Force initialization every time listener is added
+  // This ensures KVO observer is set up even after toggling Panic Wipe on/off
+  if (VolumeButtonModule.initialize) {
+    console.log('[VolumeButtonBridge] Calling initialize() to ensure volume monitoring is active');
+    VolumeButtonModule.initialize();
+  }
+
   const subscription = eventEmitter.addListener(
     'onVolumeButtonPress',
     (event) => {
