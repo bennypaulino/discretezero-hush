@@ -313,9 +313,15 @@ export const createChatSlice: StateCreator<
   clearHistory: () => {
     const { flavor, messages, isDecoyMode, customDecoyHushMessages, customDecoyClassifiedMessages } = get();
 
+    console.log('[clearHistory] Called - flavor:', flavor, 'isDecoyMode:', isDecoyMode);
+    console.log('[clearHistory] Total messages before clear:', messages.length);
+    console.log('[clearHistory] Message contexts:', messages.map(m => m.context).join(', '));
+
     if (isDecoyMode) {
+      console.log('[clearHistory] DECOY MODE - clearing decoy messages');
       // SECURITY: Overwrite decoy message contents before clearing
       if (flavor === 'HUSH') {
+        console.log('[clearHistory] Clearing', customDecoyHushMessages.length, 'Hush decoy messages');
         // Overwrite message text with random data for forensic protection
         customDecoyHushMessages.forEach((msg) => {
           if (msg.text) {
@@ -331,6 +337,7 @@ export const createChatSlice: StateCreator<
           decoyBurned: true, // Mark as burned to prevent preset refill
         });
       } else if (flavor === 'CLASSIFIED') {
+        console.log('[clearHistory] Clearing', customDecoyClassifiedMessages.length, 'Classified decoy messages');
         // Overwrite message text with random data
         customDecoyClassifiedMessages.forEach((msg) => {
           if (msg.text) {
@@ -360,8 +367,13 @@ export const createChatSlice: StateCreator<
       });
 
       // Filters out messages from the CURRENT context
-      set({ messages: messages.filter((m) => m.context !== flavor) });
+      const filteredMessages = messages.filter((m) => m.context !== flavor);
+      console.log('[clearHistory] Messages after filter:', filteredMessages.length);
+      console.log('[clearHistory] Clearing', messages.length - filteredMessages.length, 'messages from', flavor, 'context');
+      set({ messages: filteredMessages });
     }
+
+    console.log('[clearHistory] Complete - new message count:', get().messages.length);
 
     // NOTE: Zustand persist middleware will automatically flush to AsyncStorage
     // after this set() call completes. For additional security, consider:
