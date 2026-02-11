@@ -36,9 +36,9 @@ class VolumeButtonModule: RCTEventEmitter {
       // Store initial volume
       lastVolume = audioSession?.outputVolume ?? 0.5
 
-      print("[VolumeButtonModule] Audio session activated, initial volume: \(lastVolume)")
+      NSLog("[VolumeButtonModule] Audio session activated, initial volume: %f", lastVolume)
     } catch {
-      print("[VolumeButtonModule] Failed to setup audio session: \(error.localizedDescription)")
+      NSLog("[VolumeButtonModule] Failed to setup audio session: %@", error.localizedDescription)
       self.sendEvent(withName: "onVolumeButtonError", body: [
         "error": error.localizedDescription,
         "code": "AUDIO_SESSION_SETUP_FAILED"
@@ -58,7 +58,7 @@ class VolumeButtonModule: RCTEventEmitter {
          let window = windowScene.windows.first {
         window.addSubview(volumeView)
         self.volumeView = volumeView
-        print("[VolumeButtonModule] Hidden MPVolumeView added to window")
+        NSLog("[VolumeButtonModule] Hidden MPVolumeView added to window")
       }
     }
 
@@ -71,12 +71,12 @@ class VolumeButtonModule: RCTEventEmitter {
 
       // Detect Volume UP press (volume increased)
       if newVolume > oldVolume {
-        print("[VolumeButtonModule] Volume UP detected: \(oldVolume) -> \(newVolume)")
+        NSLog("[VolumeButtonModule] Volume UP detected: %f -> %f", oldVolume, newVolume)
         self.sendEvent(withName: "onVolumeButtonPress", body: ["direction": "up"])
       }
       // Detect Volume DOWN press (volume decreased)
       else if newVolume < oldVolume {
-        print("[VolumeButtonModule] Volume DOWN detected: \(oldVolume) -> \(newVolume)")
+        NSLog("[VolumeButtonModule] Volume DOWN detected: %f -> %f", oldVolume, newVolume)
         self.sendEvent(withName: "onVolumeButtonPress", body: ["direction": "down"])
       }
 
@@ -84,7 +84,7 @@ class VolumeButtonModule: RCTEventEmitter {
       self.lastVolume = newVolume
     }
 
-    print("[VolumeButtonModule] Volume monitoring active")
+    NSLog("[VolumeButtonModule] Volume monitoring active")
   }
 
   private func cleanup() {
@@ -104,22 +104,22 @@ class VolumeButtonModule: RCTEventEmitter {
     do {
       try audioSession?.setActive(false, options: [])
     } catch {
-      print("[VolumeButtonModule] Failed to deactivate audio session: \(error.localizedDescription)")
+      NSLog("[VolumeButtonModule] Failed to deactivate audio session: %@", error.localizedDescription)
     }
 
     audioSession = nil
 
-    print("[VolumeButtonModule] Volume monitoring stopped")
+    NSLog("[VolumeButtonModule] Volume monitoring stopped")
   }
 
   // React Native EventEmitter lifecycle
   override func startObserving() {
-    print("[VolumeButtonModule] startObserving() called from JavaScript")
+    NSLog("[VolumeButtonModule] startObserving() called from JavaScript")
     setupVolumeMonitoring()
   }
 
   override func stopObserving() {
-    print("[VolumeButtonModule] stopObserving() called from JavaScript")
+    NSLog("[VolumeButtonModule] stopObserving() called from JavaScript")
     cleanup()
   }
 
