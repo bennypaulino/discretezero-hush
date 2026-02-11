@@ -1,0 +1,64 @@
+{
+  "expo": {
+    "name": "Hush",
+    "slug": "Hush",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/hush-icon-1024.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/hush-icon-1024.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1a0f2e"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "icon": "./assets/hush-icon-1024.png",
+      "bundleIdentifier": "com.discretezero.hush",
+      "buildNumber": "1",
+      "deploymentTarget": "16.0",
+      "infoPlist": {
+        "MinimumOSVersion": "16.0",
+        "NSFaceIDUsageDescription": "Hush uses Face ID to unlock the app and protect your conversations.",
+        "UIBackgroundModes": [
+          "audio",
+          "audio"
+        ],
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "entitlements": {
+        "com.apple.developer.kernel.extended-virtual-addressing": true,
+        "com.apple.developer.kernel.increased-memory-limit": true
+      }
+    },
+    "android": {
+      "package": "com.discretezero.hush",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/hush-icon-512.png",
+        "backgroundColor": "#1a0f2e"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT",
+        "android.permission.VIBRATE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.ico"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-font",
+      "./plugins/withVolumeButtonCombined"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "afb38b06-8e58-4161-a9e6-1c3f3642a7bc"
+      }
+    }
+  }
+}
