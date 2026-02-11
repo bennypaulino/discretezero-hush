@@ -22,8 +22,15 @@ class VolumeButtonModule: RCTEventEmitter {
   }
 
   private func setupVolumeMonitoring() {
-    guard !isObserving else { return }
+    // CRITICAL: Always cleanup first to ensure clean re-initialization
+    // This fixes the issue where toggling Panic Wipe on/off breaks volume monitoring
+    if isObserving {
+      NSLog("[VolumeButtonModule] Already observing - cleaning up before re-initialization")
+      cleanup()
+    }
+
     isObserving = true
+    NSLog("[VolumeButtonModule] Setting up volume monitoring")
 
     // Setup audio session
     audioSession = AVAudioSession.sharedInstance()
