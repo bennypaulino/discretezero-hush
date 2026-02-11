@@ -162,7 +162,7 @@ export const usePanicWipe = (): { triggerPanicWipe: () => void } => {
     };
 
     // NATIVE MODULE: Volume button listener
-    // Calls handlePress() when Volume Down is pressed
+    // Calls handlePress() when Volume DOWN is pressed
     // Returns null in Expo Go (native module not available)
     let removeVolumeListener: (() => void) | null = null;
     try {
