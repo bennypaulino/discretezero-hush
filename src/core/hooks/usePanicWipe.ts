@@ -49,26 +49,32 @@ export const usePanicWipe = (): { triggerPanicWipe: () => void } => {
    */
   const triggerPanicWipe = useCallback(() => {
     const now = Date.now();
+    console.log('[usePanicWipe] triggerPanicWipe called');
     // Get ALL values fresh from store to prevent stale closures
     const { panicWipeEnabled, subscriptionTier, clearHistory, isDecoyMode } = useChatStore.getState();
 
     // Check if panic wipe is enabled
     if (!panicWipeEnabled || subscriptionTier === 'FREE') {
+      console.log('[usePanicWipe] ❌ Blocked: disabled or FREE tier');
       return;
     }
 
     // Check if app is in foreground
     if (appState.current !== 'active') {
+      console.log('[usePanicWipe] ❌ Blocked: app not in foreground, state:', appState.current);
       return;
     }
 
     // Check cooldown
     if (now - lastTriggerTime.current < COOLDOWN_PERIOD) {
+      console.log('[usePanicWipe] ❌ Blocked: cooldown active, time since last:', now - lastTriggerTime.current, 'ms');
       return;
     }
 
     // Update last trigger time
     lastTriggerTime.current = now;
+
+    console.log('[usePanicWipe] 🚨 PANIC WIPE TRIGGERED! Clearing history...');
 
     // Strong haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -78,24 +84,34 @@ export const usePanicWipe = (): { triggerPanicWipe: () => void } => {
 
     // Exit decoy mode if active
     if (isDecoyMode) {
+      console.log('[usePanicWipe] Exiting decoy mode');
       useChatStore.setState({ isDecoyMode: false, decoyBurned: false });
     }
+
+    console.log('[usePanicWipe] Panic wipe complete');
   }, []); // Empty deps: getState() always returns fresh values
 
   useEffect(() => {
+    console.log('[usePanicWipe] Effect running - panicWipeEnabled:', panicWipeEnabled, 'subscriptionTier:', subscriptionTier);
+
     // Only activate if Pro user and panic wipe is enabled
     if (!panicWipeEnabled || subscriptionTier === 'FREE') {
+      console.log('[usePanicWipe] NOT activating - disabled or FREE tier');
       return;
     }
+
+    console.log('[usePanicWipe] ✅ Activating panic wipe listeners');
 
     // Reset refs when effect activates (prevents stale state from previous sessions)
     pressTimestamps.current = [];
     lastTriggerTime.current = 0;
     lastPressTime.current = 0;
     appState.current = AppState.currentState;
+    console.log('[usePanicWipe] Initial appState:', AppState.currentState);
 
     // Listen for app state changes (foreground/background)
     const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
+      console.log('[usePanicWipe] AppState changed:', appState.current, '→', nextAppState);
       appState.current = nextAppState;
     });
 
@@ -106,12 +122,15 @@ export const usePanicWipe = (): { triggerPanicWipe: () => void } => {
      */
     const handlePress = () => {
       const now = Date.now();
+      console.log('[usePanicWipe] 🔊 handlePress called');
 
       // THROTTLE: Ignore presses that come too rapidly (debounce spam)
       if (now - lastPressTime.current < MIN_PRESS_INTERVAL) {
+        console.log('[usePanicWipe] Throttled (too rapid)');
         return; // Ignore this press - too soon after last one
       }
       lastPressTime.current = now;
+      console.log('[usePanicWipe] Press accepted, timestamps:', pressTimestamps.current.length);
 
       // Add current press timestamp
       pressTimestamps.current.push(now);
@@ -131,10 +150,13 @@ export const usePanicWipe = (): { triggerPanicWipe: () => void } => {
         });
 
         if (validPattern) {
+          console.log('[usePanicWipe] ✅ Valid pattern detected - triggering panic wipe!');
           // Trigger panic wipe
           triggerPanicWipe();
           // Clear press history
           pressTimestamps.current = [];
+        } else {
+          console.log('[usePanicWipe] Invalid pattern (timing off)');
         }
       }
     };
@@ -158,6 +180,7 @@ export const usePanicWipe = (): { triggerPanicWipe: () => void } => {
 
     // Cleanup
     return () => {
+      console.log('[usePanicWipe] 🧹 Cleanup running - removing listeners');
       appStateSubscription.remove();
       // Safe to call even if null (Expo Go fallback)
       removeVolumeListener?.();
