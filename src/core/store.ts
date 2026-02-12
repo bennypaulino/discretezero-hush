@@ -1240,12 +1240,18 @@ export const useChatStore = create<ChatState>()(
             if (__DEV__) console.log('[endGame] Unlocking centered badge');
             get().unlockBadge('centered');
           } else if (activeGameId === 'unburdening') {
+            if (__DEV__) {
+              console.log('[endGame] 🎮 Unburdening completed! timesCompleted:', finalProgress.timesCompleted);
+              console.log('[endGame] Checking badge unlock conditions...');
+            }
             if (finalProgress.timesCompleted >= 1) {
-              if (__DEV__) console.log('[endGame] Unlocking released badge');
+              if (__DEV__) console.log('[endGame] ✅ UNLOCKING RELEASED BADGE (timesCompleted >= 1)');
               get().unlockBadge('released');
+            } else {
+              if (__DEV__) console.log('[endGame] ❌ Released badge NOT unlocked (timesCompleted:', finalProgress.timesCompleted, '< 1)');
             }
             if (finalProgress.timesCompleted >= 5) {
-              if (__DEV__) console.log('[endGame] Unlocking unburdened badge');
+              if (__DEV__) console.log('[endGame] ✅ UNLOCKING UNBURDENED BADGE (timesCompleted >= 5)');
               get().unlockBadge('unburdened');
             }
           } else if (activeGameId === 'zero_day' && finalProgress.timesCompleted >= 3) {
@@ -1288,15 +1294,17 @@ export const useChatStore = create<ChatState>()(
       },
 
       unlockBadge: (badgeId) => {
-        if (__DEV__) console.log('[unlockBadge] Attempting to unlock badge:', badgeId);
+        if (__DEV__) console.log('[unlockBadge] 🏆 Attempting to unlock badge:', badgeId);
         set((state) => {
           // Safety check: if badge doesn't exist in persisted state, it needs to be created
           const badgeExists = state.gameState.badges[badgeId] !== undefined;
+          if (__DEV__) console.log('[unlockBadge] Badge exists in state:', badgeExists);
 
           // Don't unlock if already unlocked
           if (badgeExists && state.gameState.badges[badgeId].unlockedAt !== null) {
             if (__DEV__) {
-              console.log('[unlockBadge] Badge', badgeId, 'already unlocked at', new Date(state.gameState.badges[badgeId].unlockedAt!).toISOString());
+              console.log('[unlockBadge] ❌ Badge', badgeId, 'already unlocked at', new Date(state.gameState.badges[badgeId].unlockedAt!).toISOString());
+              console.log('[unlockBadge] Skipping unlock (already unlocked)');
             }
             return state;
           }

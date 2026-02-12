@@ -102,11 +102,13 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
   // This fixes "Rendered more hooks than during the previous render" error
   const handleExportBadges = useCallback(async () => {
     if (!badgeCollectionRef.current) {
+      console.error('[AboutSettings] Badge collection ref not ready');
       Alert.alert('Error', 'Badge collection not ready for export.');
       return;
     }
 
     try {
+      console.log('[AboutSettings] Starting badge screenshot capture...');
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
       const uri = await captureRef(badgeCollectionRef, {
@@ -114,15 +116,50 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
         quality: 1.0,
       });
 
+      console.log('[AboutSettings] Screenshot captured, URI:', uri);
+
       const isAvailable = await Sharing.isAvailableAsync();
       if (isAvailable) {
+        console.log('[AboutSettings] Sharing available, opening share dialog...');
         await Sharing.shareAsync(uri);
+        console.log('[AboutSettings] Share completed');
       } else {
+        console.error('[AboutSettings] Sharing not available on this device');
         Alert.alert('Export Failed', 'Sharing is not available on this device.');
       }
     } catch (error) {
-      console.error('Export badges error:', error);
-      Alert.alert('Export Failed', 'Could not export badge collection.');
+      console.error('[AboutSettings] Export badges error:', error);
+      Alert.alert('Export Failed', `Could not export badge collection: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }, []);
+
+  // FIXED: Move handleShare to top level (was inside renderAboutScreen)
+  // Prevents potential scope/closure issues and improves consistency
+  const handleShare = useCallback(async () => {
+    console.log('[AboutSettings] handleShare called');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const message = 'Check out Hush - Private AI that works completely offline! Your conversations stay on your device. No cloud, no tracking.';
+    const url = 'https://hush.app'; // TODO: Replace with actual app URL
+
+    try {
+      const isAvailable = await Sharing.isAvailableAsync();
+      console.log('[AboutSettings] Sharing available:', isAvailable);
+
+      if (isAvailable) {
+        console.log('[AboutSettings] Opening share dialog for URL:', url);
+        await Sharing.shareAsync(url, {
+          dialogTitle: 'Share Hush',
+          mimeType: 'text/plain',
+        });
+        console.log('[AboutSettings] Share completed');
+      } else {
+        // Fallback for platforms without Sharing API
+        console.warn('[AboutSettings] Sharing not available, showing alert fallback');
+        Alert.alert('Share Hush', message);
+      }
+    } catch (error) {
+      console.error('[AboutSettings] Share error:', error);
+      Alert.alert('Share Failed', `Could not share: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }, []);
 
@@ -157,25 +194,7 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
       Linking.openURL(appStoreUrl);
     };
 
-    const handleShare = async () => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const message = 'Check out Hush - Private AI that works completely offline! Your conversations stay on your device. No cloud, no tracking.';
-      const url = 'https://hush.app'; // TODO: Replace with actual app URL
-
-      try {
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(url, {
-            dialogTitle: 'Share Hush',
-            mimeType: 'text/plain',
-          });
-        } else {
-          // Fallback for platforms without Sharing API
-          Alert.alert('Share Hush', message);
-        }
-      } catch (error) {
-        console.error('Share error:', error);
-      }
-    };
+    // Note: handleShare moved to component top level for consistency
 
     return (
       <View style={{ flex: 1 }}>
@@ -512,7 +531,14 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
           </View>
 
           {/* Badge Grid */}
-          <View ref={badgeCollectionRef} style={{ backgroundColor: theme.bg }}>
+          <View
+            ref={badgeCollectionRef}
+            collapsible={false}
+            style={{
+              backgroundColor: theme.bg,
+              padding: 16,
+            }}
+          >
             <View style={styles.badgeGrid}>
               {badgeEntries.map(([badgeId, badge]: [string, Badge]) => {
                 // DEFENSIVE: Skip badges with missing required fields
