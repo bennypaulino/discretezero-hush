@@ -233,6 +233,18 @@ eas build --platform all --profile production
 
 #### Stage 1: Build Once (Uses 1 EAS Credit)
 
+**🚨 CRITICAL: ALWAYS PUSH COMMITS BEFORE RUNNING `eas build` 🚨**
+
+**EAS builds from the REMOTE repository, NOT your local commits!**
+
+If you don't push your commits first, EAS will build OLD CODE and waste build credits.
+
+**MANDATORY PRE-BUILD CHECKLIST:**
+1. ✅ Verify all changes are committed: `git status`
+2. ✅ **PUSH to remote:** `git push origin <branch-name>`
+3. ✅ Verify push succeeded: `git log origin/<branch-name> --oneline -3`
+4. ✅ ONLY THEN run: `eas build`
+
 **Only build when you change:**
 - Native code (Swift, Objective-C, Java, Kotlin files)
 - Expo config plugins (`app.json` plugins array)
@@ -240,7 +252,10 @@ eas build --platform all --profile production
 - Build configuration (eas.json profiles)
 
 ```bash
-# iOS development build (requires EAS credit)
+# STEP 1: PUSH COMMITS FIRST (MANDATORY!)
+git push origin feature/your-branch
+
+# STEP 2: iOS development build (requires EAS credit)
 eas build --platform ios --profile development
 
 # Android development build (requires EAS credit)
