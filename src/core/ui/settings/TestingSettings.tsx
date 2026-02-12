@@ -13,7 +13,6 @@ import { useChatStore } from '../../state/rootStore';
 import { SESSION_PAYWALL_CAP } from '../../state/slices/subscriptionSlice';
 import type { BadgeId, GameId } from '../../state/types';
 import { SettingsSubHeader } from './shared/SettingsSubHeader';
-import { getVolumeButtonInfo } from '../../modules/VolumeButtonBridge';
 import { SettingsToggleRow } from './shared/SettingsToggleRow';
 import type { SettingsTheme } from '../../themes/settingsThemeEngine';
 
@@ -52,13 +51,6 @@ export const TestingSettings: React.FC<TestingSettingsProps> = ({ onGoBack, them
   // Local accordion state
   const [onboardingExpanded, setOnboardingExpanded] = useState(false);
   const [badgeTestingExpanded, setBadgeTestingExpanded] = useState(false);
-
-  // Volume button diagnostics
-  const [volumeButtonInfo, setVolumeButtonInfo] = useState(getVolumeButtonInfo());
-  useEffect(() => {
-    // Refresh info on mount
-    setVolumeButtonInfo(getVolumeButtonInfo());
-  }, []);
 
   return (
     <View style={{ flex: 1 }}>
@@ -344,46 +336,8 @@ export const TestingSettings: React.FC<TestingSettingsProps> = ({ onGoBack, them
           Panic Wipe Testing
         </Text>
 
-        {/* Volume Button Diagnostics */}
-        <View
-          style={{
-            marginBottom: 16,
-            padding: 12,
-            backgroundColor: theme.card,
-            borderRadius: 8,
-            borderWidth: 1,
-            borderColor: volumeButtonInfo.supported ? '#10B981' : '#F59E0B',
-          }}
-        >
-          <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600', marginBottom: 8 }}>
-            Volume Button Module Status
-          </Text>
-          <Text style={{ color: theme.subtext, fontSize: 11, fontFamily: 'Courier', marginBottom: 4 }}>
-            Platform: {volumeButtonInfo.platform}
-          </Text>
-          <Text style={{ color: theme.subtext, fontSize: 11, fontFamily: 'Courier', marginBottom: 4 }}>
-            Native Module: {volumeButtonInfo.moduleAvailable ? '✅ Available' : '❌ Not found'}
-          </Text>
-          <Text style={{ color: theme.subtext, fontSize: 11, fontFamily: 'Courier', marginBottom: 4 }}>
-            Supported: {volumeButtonInfo.supported ? '✅ Yes' : '❌ No (use manual trigger)'}
-          </Text>
-          <Text style={{ color: theme.subtext, fontSize: 11, fontFamily: 'Courier', marginBottom: 4 }}>
-            Implementation: {volumeButtonInfo.implementation}
-          </Text>
-          <Text style={{ color: theme.subtext, fontSize: 11, fontFamily: 'Courier' }}>
-            Limitations: {volumeButtonInfo.limitations}
-          </Text>
-
-          {!volumeButtonInfo.supported && (
-            <Text style={{ color: '#F59E0B', fontSize: 12, marginTop: 8, fontStyle: 'italic' }}>
-              ⚠️ Native module not loaded. Check Metro logs for errors.
-            </Text>
-          )}
-        </View>
-
         <Text style={{ color: theme.subtext, fontSize: 14, marginBottom: 16 }}>
-          Manual trigger for testing without volume buttons (Expo Go compatible).
-          {volumeButtonInfo.supported && '\n\nVolume button detection is active - try triple-pressing Volume Down!'}
+          Manual trigger for testing shake gesture (works in all builds).
         </Text>
 
         <TouchableOpacity
