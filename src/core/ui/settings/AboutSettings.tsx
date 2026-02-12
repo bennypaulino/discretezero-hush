@@ -98,6 +98,34 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
   const effectiveFlavor: AppFlavor =
     effectiveMode === 'BLOCKER' ? 'CLASSIFIED' : (effectiveMode as AppFlavor);
 
+  // FIXED: Move handleExportBadges to top level (was inside renderAchievementGalleryScreen)
+  // This fixes "Rendered more hooks than during the previous render" error
+  const handleExportBadges = useCallback(async () => {
+    if (!badgeCollectionRef.current) {
+      Alert.alert('Error', 'Badge collection not ready for export.');
+      return;
+    }
+
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      const uri = await captureRef(badgeCollectionRef, {
+        format: 'png',
+        quality: 1.0,
+      });
+
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(uri);
+      } else {
+        Alert.alert('Export Failed', 'Sharing is not available on this device.');
+      }
+    } catch (error) {
+      console.error('Export badges error:', error);
+      Alert.alert('Export Failed', 'Could not export badge collection.');
+    }
+  }, []);
+
   // Screen navigation
   const navigateTo = (screen: string) => {
     Haptics.selectionAsync();
@@ -453,32 +481,6 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
         </View>
       );
     }
-
-    const handleExportBadges = useCallback(async () => {
-      if (!badgeCollectionRef.current) {
-        Alert.alert('Error', 'Badge collection not ready for export.');
-        return;
-      }
-
-      try {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-        const uri = await captureRef(badgeCollectionRef, {
-          format: 'png',
-          quality: 1.0,
-        });
-
-        const isAvailable = await Sharing.isAvailableAsync();
-        if (isAvailable) {
-          await Sharing.shareAsync(uri);
-        } else {
-          Alert.alert('Export Failed', 'Sharing is not available on this device.');
-        }
-      } catch (error) {
-        console.error('Export badges error:', error);
-        Alert.alert('Export Failed', 'Could not export badge collection.');
-      }
-    }, []);
 
     return (
       <View style={{ flex: 1 }}>
