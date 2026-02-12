@@ -169,14 +169,8 @@ export const usePanicWipe = (): { triggerPanicWipe: () => void } => {
       // Subtract 1g to account for gravity
       const totalAcceleration = Math.sqrt(x * x + y * y + z * z) - 1;
 
-      // DEBUG: Log all accelerometer readings above 1.0g for troubleshooting
-      if (totalAcceleration > 1.0) {
-        console.log('[usePanicWipe] 📊 Acceleration:', totalAcceleration.toFixed(2), 'g (threshold:', SHAKE_THRESHOLD, 'g)');
-      }
-
       // Detect shake if acceleration exceeds threshold
       if (totalAcceleration > SHAKE_THRESHOLD) {
-        console.log('[usePanicWipe] 🔊 SHAKE THRESHOLD EXCEEDED:', totalAcceleration.toFixed(2), 'g');
         handleShake();
       }
     });
@@ -186,14 +180,12 @@ export const usePanicWipe = (): { triggerPanicWipe: () => void } => {
     // Cleanup
     return () => {
       console.log('[usePanicWipe] 🧹 Cleanup running - removing listeners');
-      console.log('[usePanicWipe] 🧹 Reason: panicWipeEnabled or subscriptionTier changed, or component unmounting');
       appStateSubscription.remove();
       accelerometerSubscription.remove();
       // Reset refs to prevent stale state if effect re-runs or component remounts
       pressTimestamps.current = [];
       lastTriggerTime.current = 0;
       lastPressTime.current = 0;
-      console.log('[usePanicWipe] 🧹 Cleanup complete');
     };
   }, [panicWipeEnabled, subscriptionTier, triggerPanicWipe]);
 
