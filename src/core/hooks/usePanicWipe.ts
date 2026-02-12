@@ -33,7 +33,7 @@ const SHAKE_WINDOW = 2000; // ms - time window for 3 shakes
 const REQUIRED_SHAKES = 3;
 const COOLDOWN_PERIOD = 2000; // 2 seconds between triggers
 const MIN_SHAKE_INTERVAL = 200; // ms - minimum time between shakes (debounce)
-const SHAKE_THRESHOLD = 2.5; // g-force threshold to detect a shake
+const SHAKE_THRESHOLD = 2.0; // g-force threshold to detect a shake (reduced from 2.5g for easier triggering)
 const ACCELEROMETER_UPDATE_INTERVAL = 100; // ms - how often to check accelerometer
 
 export const usePanicWipe = (): { triggerPanicWipe: () => void } => {
