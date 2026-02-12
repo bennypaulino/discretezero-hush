@@ -72,6 +72,7 @@ export interface ChatSlice {
   addMessage: (text: string, role: 'user' | 'ai' | 'system') => void;
   sendMessage: (text: string) => Promise<void>;
   clearHistory: () => void;
+  clearAllMessages: () => void; // Panic wipe: clears EVERYTHING
 }
 
 export const createChatSlice: StateCreator<
@@ -379,5 +380,68 @@ export const createChatSlice: StateCreator<
     // after this set() call completes. For additional security, consider:
     // 1. Manually triggering GC if available: if (global.gc) global.gc();
     // 2. Multiple overwrite passes (DoD 5220.22-M standard)
+  },
+
+  /**
+   * PANIC WIPE: Clears ALL messages (real + decoy) for emergency situations
+   * Unlike clearHistory(), this clears EVERYTHING regardless of mode/context
+   *
+   * Called by: usePanicWipe hook when triple-shake detected
+   *
+   * Security behavior:
+   * - Overwrites all message text with random data (forensic protection)
+   * - Clears all real messages (all contexts: HUSH, CLASSIFIED, DISCRETION)
+   * - Clears all decoy messages (Hush + Classified presets and custom)
+   * - Marks decoy as burned (prevents refill)
+   * - Does NOT exit decoy mode (handled by usePanicWipe)
+   */
+  clearAllMessages: () => {
+    const { messages, customDecoyHushMessages, customDecoyClassifiedMessages } = get();
+
+    console.log('[clearAllMessages] 🚨 PANIC WIPE - clearing ALL messages');
+    console.log('[clearAllMessages] Real messages:', messages.length);
+    console.log('[clearAllMessages] Hush decoy messages:', customDecoyHushMessages.length);
+    console.log('[clearAllMessages] Classified decoy messages:', customDecoyClassifiedMessages.length);
+
+    // SECURITY: Overwrite all real message contents with random data
+    messages.forEach((msg) => {
+      if (msg.text) {
+        const randomChars = Array.from({ length: msg.text.length }, () =>
+          String.fromCharCode(Math.floor(Math.random() * 94) + 33)
+        ).join('');
+        msg.text = randomChars;
+      }
+    });
+
+    // SECURITY: Overwrite all Hush decoy message contents
+    customDecoyHushMessages.forEach((msg) => {
+      if (msg.text) {
+        const randomChars = Array.from({ length: msg.text.length }, () =>
+          String.fromCharCode(Math.floor(Math.random() * 94) + 33)
+        ).join('');
+        msg.text = randomChars;
+      }
+    });
+
+    // SECURITY: Overwrite all Classified decoy message contents
+    customDecoyClassifiedMessages.forEach((msg) => {
+      if (msg.text) {
+        const randomChars = Array.from({ length: msg.text.length }, () =>
+          String.fromCharCode(Math.floor(Math.random() * 94) + 33)
+        ).join('');
+        msg.text = randomChars;
+      }
+    });
+
+    // Clear everything
+    set({
+      messages: [], // Clear all real messages
+      customDecoyHushMessages: [], // Clear Hush decoy messages
+      customDecoyClassifiedMessages: [], // Clear Classified decoy messages
+      decoyBurned: true, // Mark as burned to prevent preset refill
+    });
+
+    console.log('[clearAllMessages] ✅ Complete - all messages wiped');
+    console.log('[clearAllMessages] Messages remaining:', get().messages.length);
   },
 });

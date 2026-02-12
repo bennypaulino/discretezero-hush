@@ -55,7 +55,7 @@ export const usePanicWipe = (): { triggerPanicWipe: () => void } => {
     const now = Date.now();
     console.log('[usePanicWipe] triggerPanicWipe called');
     // Get ALL values fresh from store to prevent stale closures
-    const { panicWipeEnabled, subscriptionTier, clearHistory, isDecoyMode } = useChatStore.getState();
+    const { panicWipeEnabled, subscriptionTier, clearAllMessages, isDecoyMode } = useChatStore.getState();
 
     // Check if panic wipe is enabled
     if (!panicWipeEnabled || subscriptionTier === 'FREE') {
@@ -78,13 +78,13 @@ export const usePanicWipe = (): { triggerPanicWipe: () => void } => {
     // Update last trigger time
     lastTriggerTime.current = now;
 
-    console.log('[usePanicWipe] 🚨 PANIC WIPE TRIGGERED! Clearing history...');
+    console.log('[usePanicWipe] 🚨 PANIC WIPE TRIGGERED! Clearing ALL messages...');
 
     // Strong haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
-    // Clear messages
-    clearHistory();
+    // CRITICAL: Clear ALL messages (real + decoy) for emergency situations
+    clearAllMessages();
 
     // Exit decoy mode if active
     if (isDecoyMode) {
