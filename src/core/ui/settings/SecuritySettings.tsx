@@ -471,8 +471,8 @@ export const SecuritySettings: React.FC<SecuritySettingsProps> = ({
                     Alert.alert(
                       theme.isTerminal ? 'PANIC_WIPE' : '⚠️ Panic Wipe',
                       theme.isTerminal
-                        ? 'SHAKE DEVICE 3 TIMES TO INSTANTLY CLEAR CONVERSATION.\n\n• WORKS ONLY WHEN APP IS OPEN\n• NO CONFIRMATION, NO ANIMATION\n• CONVERSATION PERMANENTLY DELETED\n• CANNOT BE UNDONE\n\nTIP: PRACTICE GESTURE FOR MUSCLE MEMORY'
-                        : 'Shake your device 3 times to instantly clear conversation.\n\n• Works only when app is open\n• No confirmation, no animation\n• Conversation is permanently deleted\n• Cannot be undone\n\n💡 Tip: Practice the gesture so it becomes muscle memory.',
+                        ? 'SHAKE DEVICE 3 TIMES TO INSTANTLY CLEAR CONVERSATION.\n\n• WORKS ONLY WHEN APP IS OPEN\n• NO CONFIRMATION, NO ANIMATION\n• CONVERSATION PERMANENTLY DELETED\n• CANNOT BE UNDONE'
+                        : 'Shake your device 3 times to instantly clear conversation.\n\n• Works only when app is open\n• No confirmation, no animation\n• Conversation is permanently deleted\n• Cannot be undone',
                       [
                         {
                           text: theme.isTerminal ? 'CANCEL' : 'Cancel',
