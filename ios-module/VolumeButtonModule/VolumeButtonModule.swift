@@ -8,7 +8,7 @@ class VolumeButtonModule: RCTEventEmitter {
 
   private var audioSession: AVAudioSession?
   private var volumeView: MPVolumeView?
-  private var volumeObservation: NSKeyValueObservation?
+  private var volumeSlider: UISlider?
   private var lastVolume: Float = 0.5
   private var isObserving: Bool = false
 
@@ -22,8 +22,15 @@ class VolumeButtonModule: RCTEventEmitter {
   }
 
   private func setupVolumeMonitoring() {
-    guard !isObserving else { return }
+    // CRITICAL: Always cleanup first to ensure clean re-initialization
+    // This fixes the issue where toggling Panic Wipe on/off breaks volume monitoring
+    if isObserving {
+      NSLog("[VolumeButtonModule] Already observing - cleaning up before re-initialization")
+      cleanup()
+    }
+
     isObserving = true
+    NSLog("[VolumeButtonModule] Setting up volume monitoring")
 
     // Setup audio session
     audioSession = AVAudioSession.sharedInstance()
@@ -36,9 +43,9 @@ class VolumeButtonModule: RCTEventEmitter {
       // Store initial volume
       lastVolume = audioSession?.outputVolume ?? 0.5
 
-      print("[VolumeButtonModule] Audio session activated, initial volume: \(lastVolume)")
+      NSLog("[VolumeButtonModule] Audio session activated, initial volume: %f", lastVolume)
     } catch {
-      print("[VolumeButtonModule] Failed to setup audio session: \(error.localizedDescription)")
+      NSLog("[VolumeButtonModule] Failed to setup audio session: %@", error.localizedDescription)
       self.sendEvent(withName: "onVolumeButtonError", body: [
         "error": error.localizedDescription,
         "code": "AUDIO_SESSION_SETUP_FAILED"
@@ -58,69 +65,102 @@ class VolumeButtonModule: RCTEventEmitter {
          let window = windowScene.windows.first {
         window.addSubview(volumeView)
         self.volumeView = volumeView
-        print("[VolumeButtonModule] Hidden MPVolumeView added to window")
+        NSLog("[VolumeButtonModule] Hidden MPVolumeView added to window")
+
+        // CRITICAL: Monitor the volume slider's value changes
+        // This fires even when volume is at min/max limits
+        if let slider = volumeView.subviews.first(where: { $0 is UISlider }) as? UISlider {
+          self.volumeSlider = slider
+          slider.addTarget(self, action: #selector(self.volumeSliderChanged), for: .valueChanged)
+          NSLog("[VolumeButtonModule] Volume slider monitoring active")
+        } else {
+          NSLog("[VolumeButtonModule] ⚠️ Could not find volume slider in MPVolumeView")
+        }
       }
     }
 
-    // Observe volume changes using KVO on AVAudioSession
-    volumeObservation = audioSession?.observe(\.outputVolume, options: [.new, .old]) { [weak self] session, change in
-      guard let self = self else { return }
-      guard let newVolume = change.newValue else { return }
+    NSLog("[VolumeButtonModule] Volume monitoring setup complete")
+  }
 
-      let oldVolume = self.lastVolume
+  // Volume slider value changed handler
+  // This fires on hardware button press even when volume is at min/max limits
+  @objc private func volumeSliderChanged() {
+    // Get current volume from audio session
+    let newVolume = audioSession?.outputVolume ?? lastVolume
+    let oldVolume = lastVolume
 
-      // Detect Volume UP press (volume increased)
-      if newVolume > oldVolume {
-        print("[VolumeButtonModule] Volume UP detected: \(oldVolume) -> \(newVolume)")
-        self.sendEvent(withName: "onVolumeButtonPress", body: ["direction": "up"])
-      }
-      // Detect Volume DOWN press (volume decreased)
-      else if newVolume < oldVolume {
-        print("[VolumeButtonModule] Volume DOWN detected: \(oldVolume) -> \(newVolume)")
+    // Detect direction based on volume change
+    if newVolume > oldVolume {
+      NSLog("[VolumeButtonModule] Volume UP detected: %f -> %f (slider)", oldVolume, newVolume)
+      self.sendEvent(withName: "onVolumeButtonPress", body: ["direction": "up"])
+    } else if newVolume < oldVolume {
+      NSLog("[VolumeButtonModule] Volume DOWN detected: %f -> %f (slider)", oldVolume, newVolume)
+      self.sendEvent(withName: "onVolumeButtonPress", body: ["direction": "down"])
+    } else {
+      // CRITICAL: Slider changed but volume didn't (at min/max limit)
+      // Determine button based on current volume level
+      if newVolume <= 0.05 {
+        NSLog("[VolumeButtonModule] Volume DOWN detected at minimum limit: %f", newVolume)
         self.sendEvent(withName: "onVolumeButtonPress", body: ["direction": "down"])
+      } else if newVolume >= 0.95 {
+        NSLog("[VolumeButtonModule] Volume UP detected at maximum limit: %f", newVolume)
+        self.sendEvent(withName: "onVolumeButtonPress", body: ["direction": "up"])
+      } else {
+        NSLog("[VolumeButtonModule] ⚠️ Slider changed but volume unchanged (mid-range): %f", newVolume)
       }
-
-      // Update last known volume
-      self.lastVolume = newVolume
     }
 
-    print("[VolumeButtonModule] Volume monitoring active")
+    // Update last known volume
+    lastVolume = newVolume
   }
 
   private func cleanup() {
     isObserving = false
 
-    // Remove volume observation
-    volumeObservation?.invalidate()
-    volumeObservation = nil
-
-    // Remove hidden volume view
+    // Remove slider target and view on main thread
     DispatchQueue.main.async { [weak self] in
-      self?.volumeView?.removeFromSuperview()
-      self?.volumeView = nil
+      guard let self = self else { return }
+
+      // Remove slider target
+      if let slider = self.volumeSlider {
+        slider.removeTarget(self, action: #selector(self.volumeSliderChanged), for: .valueChanged)
+        self.volumeSlider = nil
+        NSLog("[VolumeButtonModule] Volume slider target removed")
+      }
+
+      // Remove hidden volume view
+      self.volumeView?.removeFromSuperview()
+      self.volumeView = nil
     }
 
     // Deactivate audio session
     do {
       try audioSession?.setActive(false, options: [])
     } catch {
-      print("[VolumeButtonModule] Failed to deactivate audio session: \(error.localizedDescription)")
+      NSLog("[VolumeButtonModule] Failed to deactivate audio session: %@", error.localizedDescription)
     }
 
     audioSession = nil
 
-    print("[VolumeButtonModule] Volume monitoring stopped")
+    NSLog("[VolumeButtonModule] Volume monitoring stopped")
   }
 
   // React Native EventEmitter lifecycle
   override func startObserving() {
-    print("[VolumeButtonModule] startObserving() called from JavaScript")
+    NSLog("[VolumeButtonModule] startObserving() called from JavaScript")
     setupVolumeMonitoring()
   }
 
   override func stopObserving() {
-    print("[VolumeButtonModule] stopObserving() called from JavaScript")
+    NSLog("[VolumeButtonModule] stopObserving() called from JavaScript")
     cleanup()
+  }
+
+  // Manual initialization method (called from JavaScript to force setup)
+  @objc
+  func initialize() {
+    NSLog("[VolumeButtonModule] initialize() called explicitly from JavaScript")
+    setupVolumeMonitoring()
   }
 
   override func supportedEvents() -> [String]! {

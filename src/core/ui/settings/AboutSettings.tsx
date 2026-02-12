@@ -77,8 +77,11 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
   const badgeCollectionRef = useRef<View>(null);
   const footerTextOpacity = useRef(new Animated.Value(1)).current;
 
-  // App version
+  // App version and build number
   const appVersion = Constants.expoConfig?.version || '1.0.0';
+  const buildNumber = Platform.OS === 'ios'
+    ? Constants.expoConfig?.ios?.buildNumber || '1'
+    : Constants.expoConfig?.android?.versionCode?.toString() || '1';
 
   // Animate footer text opacity when heart is revealed (Hush only - Classified switches immediately)
   useEffect(() => {
@@ -173,7 +176,7 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
                   { color: theme.subtext, fontFamily: theme.fontBody, textAlign: 'center', marginTop: 8 },
                 ]}
               >
-                Version {appVersion} (Build 1)
+                Version {appVersion} (Build {buildNumber})
               </Text>
             </View>
           ) : (
@@ -205,7 +208,7 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
                   { color: theme.subtext, fontFamily: theme.fontBody },
                 ]}
               >
-                {theme.isTerminal ? `VERSION_${appVersion}_BUILD_1` : `Version ${appVersion} (Build 1)`}
+                {theme.isTerminal ? `VERSION_${appVersion}_BUILD_${buildNumber}` : `Version ${appVersion} (Build ${buildNumber})`}
               </Text>
             </View>
           )}
