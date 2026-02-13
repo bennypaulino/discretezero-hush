@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { Typewriter } from '../../../core/ui/Typewriter'; // <--- Precise Import
 import { useAppTheme } from '../../../core/hooks/useAppTheme';
 import { usePrivacyBlur } from '../../../core/hooks/usePrivacyBlur';
 import { useClearAnimation } from '../../../core/animations/ClearAnimationContext';
@@ -49,16 +48,12 @@ export const PrivacyMessage = React.memo(({ text, isUser }: PrivacyMessageProps)
           ]}
         >
           <Animated.View style={[styles.contentContainer, { opacity: composedTextOpacity }]}>
-            {isUser ? (
-              <Text style={[
-                styles.text,
-                { color: userTextColor }
-              ]}>
-                  {text}
-              </Text>
-            ) : (
-              <Typewriter text={text} style={styles.text} speed={15} />
-            )}
+            <Text style={[
+              styles.text,
+              isUser ? { color: userTextColor } : { color: '#fff' }
+            ]}>
+              {text}
+            </Text>
           </Animated.View>
 
           {isBlurred && (
