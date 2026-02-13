@@ -12,13 +12,14 @@
  */
 
 import { StateCreator } from 'zustand';
-import type { PerformanceMode, ModeDownloadState } from '../types';
+import type { PerformanceMode, ModeDownloadState, DeviceCapabilities } from '../types';
 
 declare const __DEV__: boolean;
 
 export interface PerformanceSlice {
   // --- STATE ---
   activeMode: PerformanceMode;
+  deviceCapabilities: DeviceCapabilities | null; // Detected at app startup
   modeDownloadState: ModeDownloadState;
   modeDownloadProgress: number;
   currentlyDownloading: PerformanceMode | null;
@@ -32,6 +33,7 @@ export interface PerformanceSlice {
 
   // --- ACTIONS ---
   setActiveMode: (mode: PerformanceMode) => void;
+  setDeviceCapabilities: (capabilities: DeviceCapabilities) => void;
   startModeDownload: (mode: PerformanceMode) => void;
   cancelModeDownload: () => void;
   setModeDownloadProgress: (progress: number) => void;
@@ -55,6 +57,7 @@ export const createPerformanceSlice: StateCreator<
 > = (set, get) => ({
   // --- INITIAL STATE ---
   activeMode: 'efficient',
+  deviceCapabilities: null, // Detected at app startup
   modeDownloadState: {
     efficient: 'not_downloaded', // Downloaded on-demand (1.6GB)
     balanced: 'not_downloaded',
@@ -68,6 +71,8 @@ export const createPerformanceSlice: StateCreator<
   balancedUpgradeDeclined: false,
 
   // --- ACTIONS ---
+  setDeviceCapabilities: (capabilities) => set({ deviceCapabilities: capabilities }),
+
   setActiveMode: (mode) => {
     const state = get();
     // Only allow setting mode if it's downloaded

@@ -3,6 +3,20 @@ import * as FileSystem from 'expo-file-system';
 import type { PerformanceMode, DeviceCapabilities } from '../state/rootStore';
 
 /**
+ * Device Profile - Context Scaling Information
+ *
+ * Phase 2 of P1.11 Dynamic Context Budgets.
+ * Determines how much of a model's recommended context to actually use
+ * based on device capabilities (chip + RAM).
+ */
+export interface DeviceProfile {
+  chipGeneration: number; // Numeric chip generation (13-18)
+  ram: number; // RAM in GB
+  thermalHeadroom: 'low' | 'medium' | 'high'; // Estimated thermal capability
+  contextScalingFactor: number; // 0.5 - 1.0 (how much context to use)
+}
+
+/**
  * Detect device capabilities for performance mode recommendation
  *
  * Expo Go compatible - uses expo-device and expo-file-system
@@ -265,4 +279,89 @@ export function getQualityWarning(modelName: string): string | null {
   }
 
   return null;
+}
+
+/**
+ * Extract numeric chip generation from chip string
+ *
+ * @param chipString - Chip string (e.g., 'A14', 'A17 Pro')
+ * @returns Numeric chip generation (e.g., 14, 17)
+ *
+ * @example
+ * extractChipNumber('A14') // returns 14
+ * extractChipNumber('A17 Pro') // returns 17
+ */
+export function extractChipNumber(chipString: string): number {
+  const match = chipString.match(/A(\d+)/);
+  if (match) {
+    return parseInt(match[1], 10);
+  }
+  // Fallback to A14 (safe default)
+  return 14;
+}
+
+/**
+ * Get device profile with context scaling factor
+ *
+ * Phase 2 of P1.11 Dynamic Context Budgets.
+ * Determines how much of a model's recommended context to actually use.
+ *
+ * Conservative scaling for lower-tier devices (per user requirement):
+ * - A13-A14 + <6GB RAM: 50% scaling (thermal/memory constraints)
+ * - A15-A16 + <8GB RAM: 75% scaling (moderate capability)
+ * - A17+ + 8GB+ RAM: 100% scaling (full capability)
+ *
+ * @param chipString - Chip generation string (e.g., 'A14', 'A17 Pro')
+ * @param ram - RAM in GB
+ * @returns Device profile with scaling factor
+ *
+ * @example
+ * // iPhone 12 (A14, 4GB)
+ * getDeviceProfile('A14', 4) // { chipGeneration: 14, ram: 4, thermalHeadroom: 'low', contextScalingFactor: 0.5 }
+ *
+ * // iPhone 15 Pro (A17 Pro, 8GB)
+ * getDeviceProfile('A17 Pro', 8) // { chipGeneration: 17, ram: 8, thermalHeadroom: 'high', contextScalingFactor: 1.0 }
+ */
+export function getDeviceProfile(chipString: string, ram: number): DeviceProfile {
+  const chipGeneration = extractChipNumber(chipString);
+
+  // Conservative scaling for lower-tier devices
+  if (chipGeneration <= 14 && ram < 6) {
+    // A13-A14, <6GB: Older devices, conservative (iPhone 11, 12, 13 base)
+    return {
+      chipGeneration,
+      ram,
+      thermalHeadroom: 'low',
+      contextScalingFactor: 0.5, // Use 50% of recommended context
+    };
+  } else if (chipGeneration <= 16 && ram < 8) {
+    // A15-A16, <8GB: Mid-range (iPhone 13 Pro, 14, 14 Pro, 15 base)
+    return {
+      chipGeneration,
+      ram,
+      thermalHeadroom: 'medium',
+      contextScalingFactor: 0.75, // Use 75% of recommended context
+    };
+  } else {
+    // A17+, 8GB+: High-end (iPhone 15 Pro, 15 Pro Max, 16 series)
+    return {
+      chipGeneration,
+      ram,
+      thermalHeadroom: 'high',
+      contextScalingFactor: 1.0, // Use full recommended context
+    };
+  }
+}
+
+/**
+ * Get context scaling factor for a device
+ *
+ * Convenience function that extracts just the scaling factor.
+ *
+ * @param chipString - Chip generation string
+ * @param ram - RAM in GB
+ * @returns Scaling factor (0.5, 0.75, or 1.0)
+ */
+export function getContextScalingFactor(chipString: string, ram: number): number {
+  return getDeviceProfile(chipString, ram).contextScalingFactor;
 }
