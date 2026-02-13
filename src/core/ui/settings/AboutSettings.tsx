@@ -103,24 +103,35 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
   const handleExportBadges = useCallback(async () => {
     if (!badgeCollectionRef.current) {
       console.error('[AboutSettings] Badge collection ref not ready');
-      Alert.alert('Error', 'Badge collection not ready for export.');
+      Alert.alert('Error', 'Badge collection not ready for export. Please try again.');
       return;
     }
 
     try {
       console.log('[AboutSettings] Starting badge screenshot capture...');
+      console.log('[AboutSettings] Ref current:', badgeCollectionRef.current);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      // Small delay to ensure badges are fully rendered
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Wait for next frame to ensure View is fully mounted and rendered
+      await new Promise(resolve => requestAnimationFrame(() => {
+        setTimeout(resolve, 300); // Increased delay for complex layouts
+      }));
 
+      // Double-check ref is still valid
+      if (!badgeCollectionRef.current) {
+        console.error('[AboutSettings] Ref became invalid during delay');
+        Alert.alert('Error', 'Screenshot failed. Please try again.');
+        return;
+      }
+
+      console.log('[AboutSettings] Capturing screenshot...');
       const uri = await captureRef(badgeCollectionRef, {
         format: 'png',
         quality: 1.0,
         result: 'tmpfile',
       });
 
-      console.log('[AboutSettings] Screenshot captured, URI:', uri);
+      console.log('[AboutSettings] Screenshot captured successfully, URI:', uri);
 
       const isAvailable = await Sharing.isAvailableAsync();
       if (isAvailable) {
@@ -136,7 +147,8 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
       }
     } catch (error) {
       console.error('[AboutSettings] Export badges error:', error);
-      Alert.alert('Export Failed', `Could not export badge collection: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      Alert.alert('Export Failed', `Could not export badge collection.\n\nError: ${errorMessage}\n\nTry scrolling the gallery first, then tap Export again.`);
     }
   }, []);
 
