@@ -111,9 +111,13 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
       console.log('[AboutSettings] Starting badge screenshot capture...');
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
+      // Small delay to ensure badges are fully rendered
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       const uri = await captureRef(badgeCollectionRef, {
         format: 'png',
         quality: 1.0,
+        result: 'tmpfile',
       });
 
       console.log('[AboutSettings] Screenshot captured, URI:', uri);
@@ -121,7 +125,10 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
       const isAvailable = await Sharing.isAvailableAsync();
       if (isAvailable) {
         console.log('[AboutSettings] Sharing available, opening share dialog...');
-        await Sharing.shareAsync(uri);
+        await Sharing.shareAsync(uri, {
+          mimeType: 'image/png',
+          dialogTitle: 'Share Badge Collection',
+        });
         console.log('[AboutSettings] Share completed');
       } else {
         console.error('[AboutSettings] Sharing not available on this device');
@@ -530,13 +537,16 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
             </Text>
           </View>
 
-          {/* Badge Grid */}
+          {/* Badge Grid - Wrapper for screenshot */}
           <View
             ref={badgeCollectionRef}
             collapsible={false}
             style={{
-              backgroundColor: theme.bg,
-              padding: 16,
+              // Use semi-transparent background that works for screenshots
+              // Pure black causes issues with captureRef
+              backgroundColor: theme.isTerminal ? '#1a0f2e' : theme.bg,
+              padding: 20,
+              borderRadius: 12,
             }}
           >
             <View style={styles.badgeGrid}>
