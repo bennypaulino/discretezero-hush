@@ -313,6 +313,11 @@ Summary:`;
 
   // --- ACTIONS ---
   toggleFlavor: () => {
+    // CRITICAL FIX: Clean up any active streaming when switching flavors
+    if (get().streamingMessageId) {
+      get().finishStreaming();
+    }
+
     const { flavor } = get();
 
     let next: AppFlavor = 'HUSH';
@@ -638,6 +643,8 @@ Summary:`;
         get().finishStreaming();
       }
     } catch (e) {
+      // CRITICAL FIX: Clean up streaming state on error
+      get().finishStreaming();
       state.addMessage('Error: Connection lost.', 'system');
     } finally {
       set({ isTyping: false });
@@ -645,6 +652,11 @@ Summary:`;
   },
 
   clearHistory: () => {
+    // CRITICAL FIX: Clean up streaming state if active
+    if (get().streamingMessageId) {
+      get().finishStreaming();
+    }
+
     const { flavor, messages, isDecoyMode, customDecoyHushMessages, customDecoyClassifiedMessages } = get();
 
     console.log('[clearHistory] Called - flavor:', flavor, 'isDecoyMode:', isDecoyMode);

@@ -727,7 +727,12 @@ ${prompt}<end_of_turn>
       (data) => {
         // STREAMING: Call token callback for real-time UI updates
         if (data.token && onTokenCallback) {
-          onTokenCallback(data.token);
+          try {
+            onTokenCallback(data.token);
+          } catch (err) {
+            console.error('[LocalAI] Token callback error:', err);
+            // Continue generation even if UI update fails
+          }
         }
       }
     );
@@ -841,7 +846,12 @@ ${userMessage}<end_of_turn>
       (data) => {
         // STREAMING: Call token callback for real-time UI updates
         if (data.token && onTokenCallback) {
-          onTokenCallback(data.token);
+          try {
+            onTokenCallback(data.token);
+          } catch (err) {
+            console.error('[LocalAI] Token callback error:', err);
+            // Continue generation even if UI update fails
+          }
         }
       }
     );
