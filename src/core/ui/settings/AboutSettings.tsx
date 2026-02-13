@@ -59,6 +59,37 @@ const getBadgeTierDisplayName = (tier: BadgeTier, flavor: AppFlavor): string => 
   }
 };
 
+/**
+ * Helper: Map badges to their origin flavor
+ * Determines which badges appear in which Achievement Gallery
+ */
+const BADGE_FLAVOR_MAP: Record<string, AppFlavor> = {
+  // Hush badges
+  centered: 'HUSH',
+  grateful: 'HUSH',
+  released: 'HUSH',
+  unburdened: 'HUSH',
+  optimist: 'HUSH',
+  backchannel: 'HUSH', // Discovery badge
+
+  // Classified badges
+  hardened_target: 'CLASSIFIED',
+  security_certified: 'CLASSIFIED',
+  white_hat: 'CLASSIFIED',
+  strategist: 'CLASSIFIED',
+  analyst: 'CLASSIFIED',
+  field_operative: 'CLASSIFIED',
+
+  // Discretion badges
+  steady_hand: 'DISCRETION',
+  closer: 'DISCRETION',
+  decisive: 'DISCRETION',
+
+  // Universal badges (show in all galleries)
+  completionist: 'UNIVERSAL',
+  beta_tester: 'UNIVERSAL',
+};
+
 export const AboutSettings: React.FC<AboutSettingsProps> = ({
   currentScreen,
   onGoBack,
@@ -487,14 +518,21 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
     const badges = gameState.badges;
 
     // DEFENSIVE: Ensure badges is iterable
-    const badgeEntries = badges && typeof badges === 'object' ? Object.entries(badges) : [];
+    const allBadgeEntries = badges && typeof badges === 'object' ? Object.entries(badges) : [];
+
+    // FILTER: Only show badges for current flavor + universal badges
+    const badgeEntries = allBadgeEntries.filter(([badgeId]) => {
+      const badgeFlavor = BADGE_FLAVOR_MAP[badgeId];
+      // Show if badge matches current flavor OR is universal
+      return badgeFlavor === effectiveFlavor || badgeFlavor === 'UNIVERSAL';
+    });
 
     // Calculate unlocked badges (where unlockedAt is not null)
     const unlockedBadges = badgeEntries
       .filter(([_, badge]) => badge && badge.unlockedAt !== null && badge.id)
       .map(([_, badge]) => badge.id);
 
-    // Calculate stats
+    // Calculate stats (only for current flavor)
     const totalBadges = badgeEntries.length;
     const unlockedCount = unlockedBadges.length;
 
@@ -545,7 +583,17 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
                 { color: theme.subtext, fontFamily: theme.fontBody },
               ]}
             >
-              {theme.isTerminal ? 'ACHIEVEMENTS_UNLOCKED' : 'Achievements Unlocked'}
+              {theme.isTerminal ? 'BADGES_UNLOCKED' : 'Badges Unlocked'}
+            </Text>
+            <Text
+              style={[
+                styles.galleryProgressTip,
+                { color: theme.subtext, fontFamily: theme.fontBody, fontSize: 12, marginTop: 8, textAlign: 'center' },
+              ]}
+            >
+              {theme.isTerminal
+                ? `${effectiveFlavor}_BADGES_ONLY`
+                : `Showing ${effectiveFlavor === 'HUSH' ? 'Hush' : 'Classified'} badges only`}
             </Text>
           </View>
 
