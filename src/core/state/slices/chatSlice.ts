@@ -674,6 +674,17 @@ Summary:`;
 
       // Verify context hasn't changed before finalizing message (async cancellation check)
       const currentState = get();
+
+      // DEBUG: Log response and streaming state
+      if (__DEV__) {
+        console.log('[sendMessage] Response received:', {
+          responseLength: response.length,
+          responsePreview: response.substring(0, 50),
+          streamingMessageId,
+          currentStreamingText: currentState.streamingText.substring(0, 50),
+        });
+      }
+
       if (currentState.flavor === capturedFlavor && currentState.messages === capturedMessages) {
         // Update placeholder message with final text and mark complete
         const finalMessage: Message = {
@@ -681,6 +692,15 @@ Summary:`;
           text: response,
           isComplete: true,
         };
+
+        // DEBUG: Log final message
+        if (__DEV__) {
+          console.log('[sendMessage] Updating message:', {
+            messageId: finalMessage.id,
+            textLength: finalMessage.text.length,
+            textPreview: finalMessage.text.substring(0, 50),
+          });
+        }
 
         // CRITICAL FIX: Atomically update message AND clear streaming state in ONE set() call
         // This prevents race condition where component re-renders with empty text before message update
@@ -715,6 +735,18 @@ Summary:`;
             streamingText: '',
             streamingTokenCount: 0,
           }));
+        }
+
+        // DEBUG: Verify message was updated
+        if (__DEV__) {
+          const updatedState = get();
+          const updatedMessage = updatedState.messages.find(m => m.id === streamingMessageId);
+          console.log('[sendMessage] Message updated in state:', {
+            found: !!updatedMessage,
+            textLength: updatedMessage?.text.length,
+            textPreview: updatedMessage?.text.substring(0, 50),
+            streamingCleared: updatedState.streamingMessageId === null,
+          });
         }
 
         // === CONVERSATION MEMORY: Check if summarization needed (Pro tier) ===
