@@ -659,6 +659,337 @@ export const TestingSettings: React.FC<TestingSettingsProps> = ({ onGoBack, them
                 Instantly display modal (no gameplay)
               </Text>
             </TouchableOpacity>
+
+            {/* SET BADGE READY TO UNLOCK */}
+            <Text
+              style={[
+                styles.sectionTitle,
+                {
+                  color: theme.accent,
+                  fontFamily: theme.fontHeader,
+                  fontSize: 16,
+                  marginTop: 32,
+                  marginBottom: 12,
+                },
+              ]}
+            >
+              Set Badge Ready to Unlock
+            </Text>
+            <Text style={{ color: theme.subtext, fontSize: 14, marginBottom: 16 }}>
+              Set game progress to one step before unlocking. Complete the game once to test badge unlock.
+            </Text>
+
+            {/* Centered Badge */}
+            <TouchableOpacity
+              style={[styles.testButton, { backgroundColor: '#10B981', borderColor: '#10B981' }]}
+              onPress={() => {
+                const state = useChatStore.getState();
+                useChatStore.setState({
+                  gameState: {
+                    ...state.gameState,
+                    gameProgress: {
+                      ...state.gameState.gameProgress,
+                      breathe: {
+                        ...state.gameState.gameProgress.breathe,
+                        timesCompleted: 9,
+                        lastPlayedAt: Date.now(),
+                      },
+                    },
+                  },
+                });
+                resetBadgeForTesting('centered');
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                Alert.alert('Ready', 'Breathe set to 9/10. Complete Breathe once to unlock "Centered" badge.');
+              }}
+            >
+              <Text style={{ color: '#000', fontFamily: theme.fontBody, fontWeight: 'bold' }}>
+                Set Centered Ready
+              </Text>
+              <Text style={{ color: '#000', fontSize: 12, marginTop: 4 }}>
+                Breathe 9/10 → Complete 1 more
+              </Text>
+            </TouchableOpacity>
+
+            {/* Grateful Badge (7-day streak) */}
+            <TouchableOpacity
+              style={[styles.testButton, { backgroundColor: '#10B981', borderColor: '#10B981' }]}
+              onPress={() => {
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                const yesterdayString = yesterday.toISOString().split('T')[0];
+
+                const state = useChatStore.getState();
+                useChatStore.setState({
+                  gameState: {
+                    ...state.gameState,
+                    gameProgress: {
+                      ...state.gameState.gameProgress,
+                      gratitude: {
+                        ...state.gameState.gameProgress.gratitude,
+                        currentStreak: 6,
+                        lastStreakDate: yesterdayString,
+                        lastPlayedAt: yesterday.getTime(),
+                      },
+                    },
+                  },
+                });
+                resetBadgeForTesting('grateful');
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                Alert.alert('Ready', 'Gratitude streak set to 6 days. Complete Gratitude once to unlock "Grateful" badge.');
+              }}
+            >
+              <Text style={{ color: '#000', fontFamily: theme.fontBody, fontWeight: 'bold' }}>
+                Set Grateful Ready
+              </Text>
+              <Text style={{ color: '#000', fontSize: 12, marginTop: 4 }}>
+                Gratitude 6-day streak → Complete 1 more
+              </Text>
+            </TouchableOpacity>
+
+            {/* Optimist Badge (30-day streak) */}
+            <TouchableOpacity
+              style={[styles.testButton, { backgroundColor: '#10B981', borderColor: '#10B981' }]}
+              onPress={() => {
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                const yesterdayString = yesterday.toISOString().split('T')[0];
+
+                const state = useChatStore.getState();
+                useChatStore.setState({
+                  gameState: {
+                    ...state.gameState,
+                    gameProgress: {
+                      ...state.gameState.gameProgress,
+                      gratitude: {
+                        ...state.gameState.gameProgress.gratitude,
+                        currentStreak: 29,
+                        lastStreakDate: yesterdayString,
+                        lastPlayedAt: yesterday.getTime(),
+                      },
+                    },
+                  },
+                });
+                resetBadgeForTesting('optimist');
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                Alert.alert('Ready', 'Gratitude streak set to 29 days. Complete Gratitude once to unlock "Optimist" badge.');
+              }}
+            >
+              <Text style={{ color: '#000', fontFamily: theme.fontBody, fontWeight: 'bold' }}>
+                Set Optimist Ready
+              </Text>
+              <Text style={{ color: '#000', fontSize: 12, marginTop: 4 }}>
+                Gratitude 29-day streak → Complete 1 more
+              </Text>
+            </TouchableOpacity>
+
+            {/* Unburdened Badge */}
+            <TouchableOpacity
+              style={[styles.testButton, { backgroundColor: '#10B981', borderColor: '#10B981' }]}
+              onPress={() => {
+                const state = useChatStore.getState();
+                useChatStore.setState({
+                  gameState: {
+                    ...state.gameState,
+                    gameProgress: {
+                      ...state.gameState.gameProgress,
+                      unburdening: {
+                        ...state.gameState.gameProgress.unburdening,
+                        timesCompleted: 4,
+                        lastPlayedAt: Date.now(),
+                      },
+                    },
+                  },
+                });
+                resetBadgeForTesting('unburdened');
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                Alert.alert('Ready', 'Unburdening set to 4/5. Complete Unburdening once to unlock "Unburdened" badge.');
+              }}
+            >
+              <Text style={{ color: '#000', fontFamily: theme.fontBody, fontWeight: 'bold' }}>
+                Set Unburdened Ready
+              </Text>
+              <Text style={{ color: '#000', fontSize: 12, marginTop: 4 }}>
+                Unburdening 4/5 → Complete 1 more
+              </Text>
+            </TouchableOpacity>
+
+            {/* White Hat Badge */}
+            <TouchableOpacity
+              style={[styles.testButton, { backgroundColor: '#10B981', borderColor: '#10B981' }]}
+              onPress={() => {
+                const state = useChatStore.getState();
+                useChatStore.setState({
+                  gameState: {
+                    ...state.gameState,
+                    gameProgress: {
+                      ...state.gameState.gameProgress,
+                      zero_day: {
+                        ...state.gameState.gameProgress.zero_day,
+                        timesCompleted: 2,
+                        lastPlayedAt: Date.now(),
+                      },
+                    },
+                  },
+                });
+                resetBadgeForTesting('white_hat');
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                Alert.alert('Ready', 'Zero Day set to 2/3. Complete Zero Day once to unlock "White Hat" badge.');
+              }}
+            >
+              <Text style={{ color: '#000', fontFamily: theme.fontBody, fontWeight: 'bold' }}>
+                Set White Hat Ready
+              </Text>
+              <Text style={{ color: '#000', fontSize: 12, marginTop: 4 }}>
+                Zero Day 2/3 → Complete 1 more
+              </Text>
+            </TouchableOpacity>
+
+            {/* Hardened Target Badge */}
+            <TouchableOpacity
+              style={[styles.testButton, { backgroundColor: '#10B981', borderColor: '#10B981' }]}
+              onPress={() => {
+                const state = useChatStore.getState();
+                useChatStore.setState({
+                  gameState: {
+                    ...state.gameState,
+                    gameProgress: {
+                      ...state.gameState.gameProgress,
+                      interrogation: {
+                        ...state.gameState.gameProgress.interrogation,
+                        timesCompleted: 9,
+                        lastPlayedAt: Date.now(),
+                      },
+                    },
+                  },
+                });
+                resetBadgeForTesting('hardened_target');
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                Alert.alert('Ready', 'Interrogation set to 9/10 wins. Win Interrogation Mode B once to unlock "Hardened Target" badge.');
+              }}
+            >
+              <Text style={{ color: '#000', fontFamily: theme.fontBody, fontWeight: 'bold' }}>
+                Set Hardened Target Ready
+              </Text>
+              <Text style={{ color: '#000', fontSize: 12, marginTop: 4 }}>
+                Interrogation 9/10 wins → Win Mode B once
+              </Text>
+            </TouchableOpacity>
+
+            {/* Security Certified Badge */}
+            <TouchableOpacity
+              style={[styles.testButton, { backgroundColor: '#10B981', borderColor: '#10B981' }]}
+              onPress={() => {
+                const state = useChatStore.getState();
+                useChatStore.setState({
+                  gameState: {
+                    ...state.gameState,
+                    gameProgress: {
+                      ...state.gameState.gameProgress,
+                      breach_protocol: {
+                        ...state.gameState.gameProgress.breach_protocol,
+                        timesCompleted: 4,
+                        lastPlayedAt: Date.now(),
+                        completedLayers: [1, 2, 3, 4],
+                        skippedLayers: [],
+                      },
+                    },
+                  },
+                });
+                resetBadgeForTesting('security_certified');
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                Alert.alert('Ready', 'Breach Protocol set to 4/5 layers (no skips). Complete layer 5 without skipping to unlock "Security Certified" badge.');
+              }}
+            >
+              <Text style={{ color: '#000', fontFamily: theme.fontBody, fontWeight: 'bold' }}>
+                Set Security Certified Ready
+              </Text>
+              <Text style={{ color: '#000', fontSize: 12, marginTop: 4 }}>
+                Breach Protocol 4/5 layers → Complete 1 more (no skip)
+              </Text>
+            </TouchableOpacity>
+
+            {/* Field Operative Badge */}
+            <TouchableOpacity
+              style={[styles.testButton, { backgroundColor: '#10B981', borderColor: '#10B981' }]}
+              onPress={() => {
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                const yesterdayString = yesterday.toISOString().split('T')[0];
+
+                const state = useChatStore.getState();
+                useChatStore.setState({
+                  gameState: {
+                    ...state.gameState,
+                    gameProgress: {
+                      ...state.gameState.gameProgress,
+                      dead_drop: {
+                        ...state.gameState.gameProgress.dead_drop,
+                        currentStreak: 29,
+                        lastStreakDate: yesterdayString,
+                        lastPlayedAt: yesterday.getTime(),
+                      },
+                    },
+                  },
+                });
+                resetBadgeForTesting('field_operative');
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                Alert.alert('Ready', 'Dead Drop streak set to 29 days. Complete Dead Drop once to unlock "Field Operative" badge.');
+              }}
+            >
+              <Text style={{ color: '#000', fontFamily: theme.fontBody, fontWeight: 'bold' }}>
+                Set Field Operative Ready
+              </Text>
+              <Text style={{ color: '#000', fontSize: 12, marginTop: 4 }}>
+                Dead Drop 29-day streak → Complete 1 more
+              </Text>
+            </TouchableOpacity>
+
+            {/* Reset All Game Progress */}
+            <TouchableOpacity
+              style={[
+                styles.testButton,
+                { backgroundColor: '#DC2626', borderColor: '#DC2626', marginTop: 24 },
+              ]}
+              onPress={() => {
+                Alert.alert(
+                  'Reset All Game Progress?',
+                  'This will reset ALL game progress (times completed, streaks, scores, etc.) for ALL games. Badges will NOT be affected.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Reset All',
+                      style: 'destructive',
+                      onPress: () => {
+                        const gameIds: Array<'breathe' | 'gratitude' | 'unburdening' | 'dead_drop' | 'interrogation' | 'breach_protocol' | 'mole_hunt' | 'zero_day' | 'defcon' | 'crisis_management' | 'negotiation' | 'executive_decision'> = [
+                          'breathe',
+                          'gratitude',
+                          'unburdening',
+                          'dead_drop',
+                          'interrogation',
+                          'breach_protocol',
+                          'mole_hunt',
+                          'zero_day',
+                          'defcon',
+                          'crisis_management',
+                          'negotiation',
+                          'executive_decision',
+                        ];
+                        gameIds.forEach((gameId) => resetGameProgressForTesting(gameId));
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                        Alert.alert('Reset Complete', 'All game progress has been reset to 0.');
+                      },
+                    },
+                  ]
+                );
+              }}
+            >
+              <Text style={{ color: '#FFF', fontFamily: theme.fontBody, fontWeight: 'bold' }}>
+                Reset All Game Progress
+              </Text>
+              <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, marginTop: 4 }}>
+                Clear all completions, streaks, and scores
+              </Text>
+            </TouchableOpacity>
           </>
         )}
       </ScrollView>
