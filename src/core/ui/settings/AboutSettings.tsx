@@ -63,7 +63,7 @@ const getBadgeTierDisplayName = (tier: BadgeTier, flavor: AppFlavor): string => 
  * Helper: Map badges to their origin flavor
  * Determines which badges appear in which Achievement Gallery
  */
-const BADGE_FLAVOR_MAP: Record<string, AppFlavor> = {
+const BADGE_FLAVOR_MAP: Record<string, AppFlavor | 'UNIVERSAL'> = {
   // Hush badges
   centered: 'HUSH',
   grateful: 'HUSH',
@@ -586,10 +586,13 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
               {theme.isTerminal ? 'BADGES_UNLOCKED' : 'Badges Unlocked'}
             </Text>
             <Text
-              style={[
-                styles.galleryProgressTip,
-                { color: theme.subtext, fontFamily: theme.fontBody, fontSize: 12, marginTop: 8, textAlign: 'center' },
-              ]}
+              style={{
+                color: theme.subtext,
+                fontFamily: theme.fontBody,
+                fontSize: 12,
+                marginTop: 8,
+                textAlign: 'center',
+              }}
             >
               {theme.isTerminal
                 ? `${effectiveFlavor}_BADGES_ONLY`
@@ -600,7 +603,7 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
           {/* Badge Grid - Wrapper for screenshot */}
           <View
             ref={badgeCollectionRef}
-            collapsible={false}
+            collapsable={false}
             style={{
               // Use semi-transparent background that works for screenshots
               // Pure black causes issues with captureRef

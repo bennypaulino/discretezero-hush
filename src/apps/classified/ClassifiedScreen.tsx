@@ -25,6 +25,8 @@ import { BalancedUpgradeToast } from '../../core/ui/BalancedUpgradeToast';
 import { ClassifiedDiscoveryBlocker } from './ClassifiedDiscoveryBlocker';
 import NetInfo from '@react-native-community/netinfo';
 import { shouldOfferBalanced } from '../../core/utils/deviceCapabilities';
+// STREAMING (P1.11 Phase 0): Keep screen awake during AI generation
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 
 // Typewriter configs
 const TITLE = 'CLASSIFIED';
@@ -110,6 +112,8 @@ export const ClassifiedScreen = ({
     showPaywall, paywallReason, setShowPaywall, triggerPaywall,
     showPostPurchaseCelebration, setShowPostPurchaseCelebration,
     firstClassifiedBlockerSeen, classifiedDiscoveryUsedHints, discoveryHintsEnabled,
+    // STREAMING STATE (P1.11 Phase 0)
+    streamingMessageId, streamingText,
   } = useChatStore();
 
   const unlockBadge = useChatStore((state) => state.unlockBadge);
@@ -153,6 +157,22 @@ export const ClassifiedScreen = ({
       }, 100);
     }
   }, [displayMessages.length, introPhase]);
+
+  // STREAMING (P1.11 Phase 0): Keep screen awake during AI generation
+  useEffect(() => {
+    if (isTyping || streamingMessageId) {
+      // Keep screen awake while generating response
+      activateKeepAwakeAsync('ai-generation');
+    } else {
+      // Deactivate when done
+      deactivateKeepAwake('ai-generation');
+    }
+
+    // Cleanup on unmount
+    return () => {
+      deactivateKeepAwake('ai-generation');
+    };
+  }, [isTyping, streamingMessageId]);
 
   // Start typewriter when effects are done
   const startIntroSequence = () => {
@@ -610,18 +630,22 @@ Type any protocol keyword to begin.`;
     flexGrow: 1
   }), []);
 
-  const renderItem = useCallback(({ item }: { item: Message }) => (
-    <RedactedMessage
-      text={item.text}
-      role={item.role}
-      isPurging={isPurging}
-      burnStyle={classifiedBurnStyle}
-      glitchColor={ACTIVE_THEME_COLOR}
-      sysColor={theme.colors.accent}
-      userColor={theme.colors.primary}
-      redactionBlockColor={theme.colors.cardBg}
-    />
-  ), [isPurging, classifiedBurnStyle, theme.colors.accent, theme.colors.primary, theme.colors.cardBg]);
+  const renderItem = useCallback(({ item }: { item: Message }) => {
+    // STREAMING (P1.11 Phase 0): Use streaming text for messages being generated
+    const displayText = item.id === streamingMessageId ? streamingText : item.text;
+    return (
+      <RedactedMessage
+        text={displayText}
+        role={item.role}
+        isPurging={isPurging}
+        burnStyle={classifiedBurnStyle}
+        glitchColor={ACTIVE_THEME_COLOR}
+        sysColor={theme.colors.accent}
+        userColor={theme.colors.primary}
+        redactionBlockColor={theme.colors.cardBg}
+      />
+    );
+  }, [isPurging, classifiedBurnStyle, theme.colors.accent, theme.colors.primary, theme.colors.cardBg, streamingMessageId, streamingText]);
 
   return (
     <View

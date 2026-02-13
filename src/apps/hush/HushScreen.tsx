@@ -31,6 +31,8 @@ import { renderClearAnimation } from '../../core/animations/AnimationRegistry';
 import { ClearAnimationProvider } from '../../core/animations/ClearAnimationContext';
 import NetInfo from '@react-native-community/netinfo';
 import { shouldOfferBalanced } from '../../core/utils/deviceCapabilities';
+// STREAMING (P1.11 Phase 0): Keep screen awake during AI generation
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 
 
 export const HushScreen = () => {
@@ -66,6 +68,8 @@ export const HushScreen = () => {
     toggleFlavor, showPaywall, paywallReason, setShowPaywall, triggerPaywall, handleDailyLimitBannerTap, togglePrivacyBlur,
     hushBurnStyle, subscriptionTier, proFirstLaunchSeen, setProFirstLaunchSeen,
     showPostPurchaseCelebration, setShowPostPurchaseCelebration,
+    // STREAMING STATE (P1.11 Phase 0)
+    streamingMessageId, streamingText,
   } = useChatStore();
 
   // Badge unlock notification
@@ -132,6 +136,22 @@ export const HushScreen = () => {
       setShowGlowNow(true);
     }
   };
+
+  // STREAMING (P1.11 Phase 0): Keep screen awake during AI generation
+  useEffect(() => {
+    if (isTyping || streamingMessageId) {
+      // Keep screen awake while generating response
+      activateKeepAwakeAsync('ai-generation');
+    } else {
+      // Deactivate when done
+      deactivateKeepAwake('ai-generation');
+    }
+
+    // Cleanup on unmount
+    return () => {
+      deactivateKeepAwake('ai-generation');
+    };
+  }, [isTyping, streamingMessageId]);
 
   // Reset sequencing when hints change
   useEffect(() => {
@@ -463,9 +483,11 @@ Choose what you need right now.`;
     flexGrow: 1
   }), []);
 
-  const renderItem = useCallback(({ item }: { item: Message }) => (
-    <PrivacyMessage text={item.text} isUser={item.role === 'user'} />
-  ), []);
+  const renderItem = useCallback(({ item }: { item: Message }) => {
+    // STREAMING (P1.11 Phase 0): Use streaming text for messages being generated
+    const displayText = item.id === streamingMessageId ? streamingText : item.text;
+    return <PrivacyMessage text={displayText} isUser={item.role === 'user'} />;
+  }, [streamingMessageId, streamingText]);
 
   return (
     // ROOT VIEW: Attach the hook handler here

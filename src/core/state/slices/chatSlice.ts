@@ -89,6 +89,11 @@ export interface ChatSlice {
   conversationSummaries: Record<AppFlavor, ConversationSummary | null>; // Per-flavor AI summaries (Pro)
   lastSummarizationCheck: Record<AppFlavor, number>; // Timestamp of last summarization check
 
+  // --- STREAMING STATE (P1.11 Phase 0) ---
+  streamingMessageId: string | null; // ID of message currently streaming
+  streamingText: string; // Accumulated text being streamed
+  streamingTokenCount: number; // Number of tokens streamed so far
+
   // --- ACTIONS ---
   toggleFlavor: () => void;
   setFlavor: (flavor: AppFlavor) => void;
@@ -97,6 +102,11 @@ export interface ChatSlice {
   sendMessage: (text: string) => Promise<void>;
   clearHistory: () => void;
   clearAllMessages: () => void; // Panic wipe: clears EVERYTHING
+
+  // --- STREAMING ACTIONS (P1.11 Phase 0) ---
+  startStreaming: (messageId: string) => void;
+  appendStreamingToken: (token: string) => void;
+  finishStreaming: () => void;
 }
 
 export const createChatSlice: StateCreator<
@@ -296,8 +306,18 @@ Summary:`;
     DISCRETION: 0,
   },
 
+  // --- STREAMING INITIAL STATE (P1.11 Phase 0) ---
+  streamingMessageId: null,
+  streamingText: '',
+  streamingTokenCount: 0,
+
   // --- ACTIONS ---
   toggleFlavor: () => {
+    // CRITICAL FIX: Clean up any active streaming when switching flavors
+    if (get().streamingMessageId) {
+      get().finishStreaming();
+    }
+
     const { flavor } = get();
 
     let next: AppFlavor = 'HUSH';
@@ -527,19 +547,83 @@ Summary:`;
         }
       }
 
-      // Call AI with conversation context
+      // === STREAMING (P1.11 Phase 0): Create placeholder message ===
+      const streamingMessageId = Date.now().toString();
+      const placeholderMessage: Message = {
+        id: streamingMessageId,
+        role: 'ai',
+        text: '', // Empty - will be filled by streaming
+        timestamp: Date.now(),
+        context: capturedFlavor,
+        isComplete: false, // Mark as incomplete during streaming
+      };
+
+      // Add placeholder to appropriate array
+      if (state.isDecoyMode) {
+        if (capturedFlavor === 'HUSH') {
+          set((s) => ({
+            customDecoyHushMessages: [...s.customDecoyHushMessages, placeholderMessage],
+          }));
+        } else if (capturedFlavor === 'CLASSIFIED') {
+          set((s) => ({
+            customDecoyClassifiedMessages: [...s.customDecoyClassifiedMessages, placeholderMessage],
+          }));
+        }
+      } else {
+        set((s) => ({
+          messages: [...s.messages, placeholderMessage],
+        }));
+      }
+
+      // Start streaming state
+      get().startStreaming(streamingMessageId);
+
+      // Call AI with streaming callback
       const response = await generateResponse(
         sanitizedText,
         capturedFlavor,
         conversationHistory, // NEW: conversation history
         summary, // NEW: conversation summary (Pro)
-        responseStyle
+        responseStyle,
+        // STREAMING CALLBACK: Update streaming text on each token
+        (token: string) => {
+          get().appendStreamingToken(token);
+        }
       );
 
-      // Verify context hasn't changed before adding message (async cancellation check)
+      // Finish streaming
+      get().finishStreaming();
+
+      // Verify context hasn't changed before finalizing message (async cancellation check)
       const currentState = get();
       if (currentState.flavor === capturedFlavor && currentState.messages === capturedMessages) {
-        state.addMessage(response, 'ai');
+        // Update placeholder message with final text and mark complete
+        const finalMessage: Message = {
+          ...placeholderMessage,
+          text: response,
+          isComplete: true,
+        };
+
+        if (state.isDecoyMode) {
+          if (capturedFlavor === 'HUSH') {
+            set((s) => ({
+              customDecoyHushMessages: s.customDecoyHushMessages.map((m) =>
+                m.id === streamingMessageId ? finalMessage : m
+              ),
+            }));
+          } else if (capturedFlavor === 'CLASSIFIED') {
+            set((s) => ({
+              customDecoyClassifiedMessages: s.customDecoyClassifiedMessages.map((m) =>
+                m.id === streamingMessageId ? finalMessage : m
+              ),
+            }));
+          }
+        } else {
+          set((s) => ({
+            messages: s.messages.map((m) => (m.id === streamingMessageId ? finalMessage : m)),
+            totalMessagesProtected: s.totalMessagesProtected + 1, // Count completed AI message
+          }));
+        }
 
         // === CONVERSATION MEMORY: Check if summarization needed (Pro tier) ===
         if (currentState.subscriptionTier !== 'FREE') {
@@ -555,8 +639,12 @@ Summary:`;
         if (__DEV__) {
           console.log('[sendMessage] Context changed during AI generation, discarding stale response');
         }
+        // Clean up streaming state
+        get().finishStreaming();
       }
     } catch (e) {
+      // CRITICAL FIX: Clean up streaming state on error
+      get().finishStreaming();
       state.addMessage('Error: Connection lost.', 'system');
     } finally {
       set({ isTyping: false });
@@ -564,6 +652,11 @@ Summary:`;
   },
 
   clearHistory: () => {
+    // CRITICAL FIX: Clean up streaming state if active
+    if (get().streamingMessageId) {
+      get().finishStreaming();
+    }
+
     const { flavor, messages, isDecoyMode, customDecoyHushMessages, customDecoyClassifiedMessages } = get();
 
     console.log('[clearHistory] Called - flavor:', flavor, 'isDecoyMode:', isDecoyMode);
@@ -695,6 +788,42 @@ Summary:`;
 
     console.log('[clearAllMessages] ✅ Complete - all messages wiped');
     console.log('[clearAllMessages] Messages remaining:', get().messages.length);
+  },
+
+  // --- STREAMING ACTIONS (P1.11 Phase 0) ---
+  /**
+   * Start streaming a new AI response
+   * Creates a placeholder message and sets streaming state
+   */
+  startStreaming: (messageId: string) => {
+    set({
+      streamingMessageId: messageId,
+      streamingText: '',
+      streamingTokenCount: 0,
+    });
+  },
+
+  /**
+   * Append a token to the streaming text
+   * Called for each token received from AI
+   */
+  appendStreamingToken: (token: string) => {
+    set((state) => ({
+      streamingText: state.streamingText + token,
+      streamingTokenCount: state.streamingTokenCount + 1,
+    }));
+  },
+
+  /**
+   * Finish streaming and finalize the message
+   * Marks streaming as complete and clears streaming state
+   */
+  finishStreaming: () => {
+    set({
+      streamingMessageId: null,
+      streamingText: '',
+      streamingTokenCount: 0,
+    });
   },
   }; // Close returned object
 }; // Close createChatSlice function

@@ -96,4 +96,5 @@ export interface Message {
   text: string;
   timestamp: number;
   context: AppFlavor;
+  isComplete?: boolean; // Streaming: true when message fully generated (backward compatible)
 }

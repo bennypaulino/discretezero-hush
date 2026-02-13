@@ -23,6 +23,8 @@ import { SettingsModal } from '../../core/ui/SettingsModal';
 import { BlurView } from 'expo-blur';
 import { useDoubleTap } from '../../core/hooks/useDoubleTap';
 import { LockScreen } from '../../core/security/LockScreen';
+// STREAMING (P1.11 Phase 0): Keep screen awake during AI generation
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 
 const stripEmojis = (str: string) => str.replace(/[^\x00-\x7F]/g, "").trim();
 
@@ -88,7 +90,10 @@ export const DiscretionScreen = () => {
       clearHistory,
       toggleFlavor,
       togglePrivacyBlur,
-      privacyBlurEnabled
+      privacyBlurEnabled,
+      // STREAMING STATE (P1.11 Phase 0)
+      streamingMessageId,
+      streamingText,
   } = useChatStore();
 
   const modeDownloadState = useChatStore((state) => state.modeDownloadState);
@@ -116,6 +121,22 @@ export const DiscretionScreen = () => {
   useAutoScroll(flatListRef, displayMessages.length);
 
   const handleGlobalDoubleTap = useDoubleTap();
+
+  // STREAMING (P1.11 Phase 0): Keep screen awake during AI generation
+  useEffect(() => {
+    if (isTyping || streamingMessageId) {
+      // Keep screen awake while generating response
+      activateKeepAwakeAsync('ai-generation');
+    } else {
+      // Deactivate when done
+      deactivateKeepAwake('ai-generation');
+    }
+
+    // Cleanup on unmount
+    return () => {
+      deactivateKeepAwake('ai-generation');
+    };
+  }, [isTyping, streamingMessageId]);
 
   // Check if AI model is downloaded
   const modelDownloaded = modeDownloadState.efficient === 'downloaded';
@@ -201,7 +222,9 @@ export const DiscretionScreen = () => {
   }), []);
 
   const renderItem = useCallback(({ item }: { item: any }) => {
-    const cleanContent = stripEmojis(item.text);
+    // STREAMING (P1.11 Phase 0): Use streaming text for messages being generated
+    const displayText = item.id === streamingMessageId ? streamingText : item.text;
+    const cleanContent = stripEmojis(displayText);
     if (!cleanContent) return null;
     const isUser = item.role === 'user';
 
@@ -232,7 +255,7 @@ export const DiscretionScreen = () => {
         </View>
       </PrivacyBlock>
     );
-  }, [privacyBlurEnabled, handleGlobalDoubleTap, THEME.userBubble, THEME.accent]);
+  }, [privacyBlurEnabled, handleGlobalDoubleTap, THEME.userBubble, THEME.accent, streamingMessageId, streamingText]);
 
   return (
     <View
