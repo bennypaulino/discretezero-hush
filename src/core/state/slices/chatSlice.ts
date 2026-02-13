@@ -672,9 +672,6 @@ Summary:`;
         }
       );
 
-      // Finish streaming
-      get().finishStreaming();
-
       // Verify context hasn't changed before finalizing message (async cancellation check)
       const currentState = get();
       if (currentState.flavor === capturedFlavor && currentState.messages === capturedMessages) {
@@ -685,24 +682,38 @@ Summary:`;
           isComplete: true,
         };
 
+        // CRITICAL FIX: Atomically update message AND clear streaming state in ONE set() call
+        // This prevents race condition where component re-renders with empty text before message update
         if (state.isDecoyMode) {
           if (capturedFlavor === 'HUSH') {
             set((s) => ({
               customDecoyHushMessages: s.customDecoyHushMessages.map((m) =>
                 m.id === streamingMessageId ? finalMessage : m
               ),
+              // Clear streaming state in same update
+              streamingMessageId: null,
+              streamingText: '',
+              streamingTokenCount: 0,
             }));
           } else if (capturedFlavor === 'CLASSIFIED') {
             set((s) => ({
               customDecoyClassifiedMessages: s.customDecoyClassifiedMessages.map((m) =>
                 m.id === streamingMessageId ? finalMessage : m
               ),
+              // Clear streaming state in same update
+              streamingMessageId: null,
+              streamingText: '',
+              streamingTokenCount: 0,
             }));
           }
         } else {
           set((s) => ({
             messages: s.messages.map((m) => (m.id === streamingMessageId ? finalMessage : m)),
             totalMessagesProtected: s.totalMessagesProtected + 1, // Count completed AI message
+            // Clear streaming state in same update
+            streamingMessageId: null,
+            streamingText: '',
+            streamingTokenCount: 0,
           }));
         }
 
