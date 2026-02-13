@@ -9,8 +9,9 @@ import * as Notifications from 'expo-notifications';
 import { AppState, type NativeEventSubscription } from 'react-native';
 import { PERSONALITIES } from './GroqAI';
 import type { AppFlavor } from '../../config';
-import type { ResponseStyleHush, ResponseStyleClassified, ResponseStyleDiscretion, PerformanceMode } from '../state/rootStore';
+import type { ResponseStyleHush, ResponseStyleClassified, ResponseStyleDiscretion, PerformanceMode, Message } from '../state/rootStore';
 import { useChatStore } from '../state/rootStore';
+import { estimateTokens } from '../utils/tokenCounter';
 
 // Model configurations
 interface ModelConfig {
@@ -616,6 +617,8 @@ export async function deleteModel(mode: PerformanceMode): Promise<void> {
 export async function generateResponse(
   prompt: string,
   context: AppFlavor = 'HUSH',
+  conversationHistory: Message[] = [], // NEW: conversation context
+  conversationSummary?: string | null, // NEW: optional summary (Pro users)
   responseStyle?: ResponseStyleHush | ResponseStyleClassified | ResponseStyleDiscretion
 ): Promise<string> {
   try {
@@ -659,17 +662,47 @@ export async function generateResponse(
     // Adjust max tokens based on style (same as GroqAI)
     const maxTokens = (responseStyle === 'quick' || responseStyle === 'operator' || responseStyle === 'formal') ? 150 : 400;
 
-    // Format messages for inference
-    // Using Gemma/Llama chat template format
-    const formattedPrompt = `<start_of_turn>system
+    // === BUILD MULTI-TURN PROMPT WITH CONVERSATION HISTORY (P1.10) ===
+    // Using Gemma/Llama chat template format: <start_of_turn>{role}\n{text}<end_of_turn>\n
+
+    // 1. System prompt
+    let formattedPrompt = `<start_of_turn>system
 ${systemPrompt}<end_of_turn>
-<start_of_turn>user
+`;
+
+    // 2. Inject conversation summary if available (Pro users)
+    if (conversationSummary) {
+      formattedPrompt += `<start_of_turn>system
+[Previous conversation summary: ${conversationSummary}]<end_of_turn>
+`;
+      if (__DEV__) {
+        console.log('[LocalAI] Including conversation summary');
+      }
+    }
+
+    // 3. Inject conversation history (recent messages)
+    for (const msg of conversationHistory) {
+      if (msg.role === 'user') {
+        formattedPrompt += `<start_of_turn>user
+${msg.text}<end_of_turn>
+`;
+      } else if (msg.role === 'ai') {
+        formattedPrompt += `<start_of_turn>model
+${msg.text}<end_of_turn>
+`;
+      }
+      // Skip system messages (they're UI alerts, not part of conversation)
+    }
+
+    // 4. Append current user message
+    formattedPrompt += `<start_of_turn>user
 ${prompt}<end_of_turn>
 <start_of_turn>model
 `;
 
     if (__DEV__) {
-      console.log('[LocalAI] Generating response...');
+      const estimatedTokens = estimateTokens(formattedPrompt);
+      console.log(`[LocalAI] Generating response with ${conversationHistory.length} history messages (~${estimatedTokens} tokens)...`);
     }
 
     // P1 fix: Re-check context before inference (could have been released due to memory pressure)

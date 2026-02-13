@@ -86,7 +86,13 @@ export function PrivacyVerification({
       // Call actual AI or use provided callback
       const response = onAskQuestion
         ? await onAskQuestion(state.userQuestion)
-        : await generateResponse(state.userQuestion, flavor, currentResponseStyle);
+        : await generateResponse(
+            state.userQuestion,
+            flavor,
+            [], // No conversation history for verification challenge
+            null, // No summary
+            currentResponseStyle
+          );
 
       setState((prev) => ({
         ...prev,

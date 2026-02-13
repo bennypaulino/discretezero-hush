@@ -1064,7 +1064,13 @@ export const useChatStore = create<ChatState>()(
                 ? state.responseStyleDiscretion
                 : undefined;
 
-          const response = await generateResponse(text, state.flavor, responseStyle);
+          const response = await generateResponse(
+            text,
+            state.flavor,
+            [], // No conversation history (store.ts deprecated - chatSlice handles this)
+            null, // No summary
+            responseStyle
+          );
           state.addMessage(response, 'ai');
         } catch (e) {
           state.addMessage('Error: Connection lost.', 'system');

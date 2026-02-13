@@ -17,7 +17,12 @@ import { Keyboard } from 'react-native';
 import { generateResponse } from '../../engine/LocalAI';
 import { detectGameTrigger } from '../../engine/GameTriggers';
 import { validateMessageInput } from '../../utils/inputSanitizer';
-import type { AppFlavor, Message, ResponseStyleHush, ResponseStyleClassified, ResponseStyleDiscretion, GameId } from '../types';
+import {
+  estimateConversationTokens,
+  getContextWindowSize,
+  estimateTokens,
+} from '../../utils/tokenCounter';
+import type { AppFlavor, Message, ResponseStyleHush, ResponseStyleClassified, ResponseStyleDiscretion, GameId, PerformanceMode } from '../types';
 
 declare const __DEV__: boolean;
 
@@ -57,6 +62,21 @@ interface DiscoverySliceMinimal {
   setClassifiedDiscovered: (discovered: boolean) => void;
 }
 
+interface PerformanceSliceMinimal {
+  activeMode: PerformanceMode;
+}
+
+/**
+ * Conversation Summary for Pro users
+ * Stores AI-generated summary of oldest conversation messages
+ */
+interface ConversationSummary {
+  summaryText: string; // AI-generated summary
+  summarizedUpToMessageId: string; // Last message ID included in summary
+  createdAt: number; // Timestamp when summary was generated
+  tokenCount: number; // Estimated tokens in summary
+}
+
 export interface ChatSlice {
   // --- STATE ---
   flavor: AppFlavor;
@@ -64,6 +84,10 @@ export interface ChatSlice {
   messages: Message[];
   isTyping: boolean;
   totalMessagesProtected: number; // Counter for Privacy Dashboard
+
+  // --- CONVERSATION MEMORY STATE (New) ---
+  conversationSummaries: Record<AppFlavor, ConversationSummary | null>; // Per-flavor AI summaries (Pro)
+  lastSummarizationCheck: Record<AppFlavor, number>; // Timestamp of last summarization check
 
   // --- ACTIONS ---
   toggleFlavor: () => void;
@@ -76,17 +100,201 @@ export interface ChatSlice {
 }
 
 export const createChatSlice: StateCreator<
-  ChatSlice & SecuritySliceMinimal & SubscriptionSliceMinimal & GamificationSliceMinimal & ThemingSliceMinimal & DiscoverySliceMinimal,
+  ChatSlice & SecuritySliceMinimal & SubscriptionSliceMinimal & GamificationSliceMinimal & ThemingSliceMinimal & DiscoverySliceMinimal & PerformanceSliceMinimal,
   [],
   [],
   ChatSlice
-> = (set, get) => ({
+> = (set, get) => {
+  /**
+   * Get conversation history for AI context
+   *
+   * FREE TIER: Sliding window - last N message pairs
+   * - Efficient mode: 3 pairs (6 messages)
+   * - Balanced/Quality: 5 pairs (10 messages)
+   *
+   * PRO TIER: Full history
+   * - Returns all messages for current flavor
+   * - Summarization handles overflow at 80% capacity
+   *
+   * @param messages - Message array (real or decoy)
+   * @param flavor - Current flavor (HUSH, CLASSIFIED, DISCRETION)
+   * @param subscriptionTier - User's subscription tier
+   * @param activeMode - Current performance mode
+   * @returns Filtered message history for AI
+   */
+  const getConversationHistory = (
+    messages: Message[],
+    flavor: AppFlavor,
+    subscriptionTier: 'FREE' | 'MONTHLY' | 'YEARLY',
+    activeMode: PerformanceMode
+  ): Message[] => {
+    // Filter to current flavor, exclude system messages
+    // System messages are UI alerts, not part of conversation
+    const flavorMessages = messages.filter(
+      (m) => m.context === flavor && m.role !== 'system'
+    );
+
+    // PRO USERS: Return full history
+    // Summarization will handle context window overflow
+    if (subscriptionTier !== 'FREE') {
+      return flavorMessages;
+    }
+
+    // FREE USERS: Sliding window
+    // Efficient mode: 3 pairs (6 messages) ≈ 300-500 tokens
+    // Balanced/Quality: 5 pairs (10 messages) ≈ 500-800 tokens
+    const maxPairs = activeMode === 'efficient' ? 3 : 5;
+
+    // Take last N*2 messages (N pairs = N user + N AI)
+    const recentMessages = flavorMessages.slice(-maxPairs * 2);
+
+    if (__DEV__ && flavorMessages.length > recentMessages.length) {
+      console.log(
+        `[Memory] Free tier sliding window: Showing ${recentMessages.length}/${flavorMessages.length} messages (last ${maxPairs} pairs)`
+      );
+    }
+
+    return recentMessages;
+  };
+
+  /**
+   * Check if summarization is needed and trigger if so (Pro tier only)
+   *
+   * Monitors conversation token usage and triggers AI summarization
+   * when context window reaches 80% capacity.
+   *
+   * FREE TIER: No-op (sliding window handles memory)
+   * PRO TIER: Summarizes oldest 50% of messages at 80% capacity
+   *
+   * @param flavor - Current flavor to check
+   */
+  const checkAndSummarizeIfNeeded = async (flavor: AppFlavor): Promise<void> => {
+    const state = get();
+
+    // Only Pro users get summarization
+    if (state.subscriptionTier === 'FREE') {
+      return;
+    }
+
+    // Calculate current context usage
+    const flavorMessages = state.messages.filter(
+      (m) => m.context === flavor && m.role !== 'system'
+    );
+
+    if (flavorMessages.length === 0) {
+      return; // No messages to summarize
+    }
+
+    const currentTokens = estimateConversationTokens(flavorMessages, 'long');
+    const contextWindow = getContextWindowSize(state.activeMode);
+    const usagePercent = (currentTokens / contextWindow) * 100;
+
+    // Trigger at 80% capacity
+    if (usagePercent >= 80) {
+      console.log(
+        `[Memory] Context ${usagePercent.toFixed(0)}% full (${currentTokens}/${contextWindow} tokens) - triggering summarization`
+      );
+      await summarizeConversation(flavor);
+    }
+  };
+
+  /**
+   * Generate AI summary of oldest conversation messages (Pro tier)
+   *
+   * Summarizes oldest 50% of messages and stores the summary.
+   * The summary is injected into future prompts to provide compressed context.
+   *
+   * This is a BLOCKING operation (~2-3 seconds) that shows a loading state.
+   *
+   * @param flavor - Flavor to summarize
+   */
+  const summarizeConversation = async (flavor: AppFlavor): Promise<void> => {
+    const state = get();
+
+    // Get messages to summarize (oldest 50%)
+    const flavorMessages = state.messages.filter(
+      (m) => m.context === flavor && m.role !== 'system'
+    );
+
+    if (flavorMessages.length < 10) {
+      // Don't summarize very short conversations
+      return;
+    }
+
+    const midpoint = Math.floor(flavorMessages.length / 2);
+    const messagesToSummarize = flavorMessages.slice(0, midpoint);
+
+    // Build summary prompt
+    const conversationText = messagesToSummarize
+      .map((m) => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`)
+      .join('\n');
+
+    const summaryPrompt = `Summarize this conversation concisely (2-3 sentences). Focus on key topics, user preferences, and important context:
+
+${conversationText}
+
+Summary:`;
+
+    try {
+      // Show loading state while summarizing
+      set({ isTyping: true });
+
+      // Call AI for summarization (no history, no prior summary)
+      const summary = await generateResponse(
+        summaryPrompt,
+        flavor,
+        [], // No history for summarization call
+        null, // No prior summary
+        state.responseStyleHush // Or appropriate style for flavor
+      );
+
+      // Store summary
+      const summaryObj: ConversationSummary = {
+        summaryText: summary,
+        summarizedUpToMessageId: messagesToSummarize[messagesToSummarize.length - 1].id,
+        createdAt: Date.now(),
+        tokenCount: estimateTokens(summary) + 20, // +20 for template overhead
+      };
+
+      set((state) => ({
+        conversationSummaries: {
+          ...state.conversationSummaries,
+          [flavor]: summaryObj,
+        },
+        lastSummarizationCheck: {
+          ...state.lastSummarizationCheck,
+          [flavor]: Date.now(),
+        },
+        isTyping: false,
+      }));
+
+      console.log('[Memory] Summary generated:', summary.substring(0, 100) + '...');
+    } catch (error) {
+      console.error('[Memory] Summarization failed:', error);
+      // Fail silently - don't block user
+      set({ isTyping: false });
+    }
+  };
+
+  return {
   // --- INITIAL STATE ---
   flavor: 'HUSH' as AppFlavor, // Default to HUSH
   privacyBlurEnabled: true,
   messages: [],
   isTyping: false,
   totalMessagesProtected: 0,
+
+  // --- CONVERSATION MEMORY INITIAL STATE ---
+  conversationSummaries: {
+    HUSH: null,
+    CLASSIFIED: null,
+    DISCRETION: null,
+  },
+  lastSummarizationCheck: {
+    HUSH: 0,
+    CLASSIFIED: 0,
+    DISCRETION: 0,
+  },
 
   // --- ACTIONS ---
   toggleFlavor: () => {
@@ -293,12 +501,56 @@ export const createChatSlice: StateCreator<
       const capturedFlavor = state.flavor;
       const capturedMessages = state.messages;
 
-      const response = await generateResponse(sanitizedText, capturedFlavor, responseStyle);
+      // === CONVERSATION MEMORY (P1.10) ===
+      // Determine which message array to use (real vs decoy)
+      const messagesArray = state.isDecoyMode
+        ? (capturedFlavor === 'HUSH' ? state.customDecoyHushMessages : state.customDecoyClassifiedMessages)
+        : state.messages;
+
+      // Get conversation history (sliding window for Free, full for Pro)
+      const conversationHistory = getConversationHistory(
+        messagesArray,
+        capturedFlavor,
+        state.subscriptionTier,
+        state.activeMode
+      );
+
+      // Get summary if available (Pro users only)
+      const summary = state.conversationSummaries[capturedFlavor]?.summaryText || null;
+
+      if (__DEV__) {
+        console.log(
+          `[Memory] Passing ${conversationHistory.length} messages to AI (${state.subscriptionTier} tier, ${state.activeMode} mode)`
+        );
+        if (summary) {
+          console.log('[Memory] Including conversation summary');
+        }
+      }
+
+      // Call AI with conversation context
+      const response = await generateResponse(
+        sanitizedText,
+        capturedFlavor,
+        conversationHistory, // NEW: conversation history
+        summary, // NEW: conversation summary (Pro)
+        responseStyle
+      );
 
       // Verify context hasn't changed before adding message (async cancellation check)
       const currentState = get();
       if (currentState.flavor === capturedFlavor && currentState.messages === capturedMessages) {
         state.addMessage(response, 'ai');
+
+        // === CONVERSATION MEMORY: Check if summarization needed (Pro tier) ===
+        if (currentState.subscriptionTier !== 'FREE') {
+          // Run summarization check asynchronously (don't block UI)
+          // This is safe because it only reads state and updates summarization metadata
+          checkAndSummarizeIfNeeded(capturedFlavor).catch((err) => {
+            if (__DEV__) {
+              console.error('[Memory] Summarization check failed:', err);
+            }
+          });
+        }
       } else {
         if (__DEV__) {
           console.log('[sendMessage] Context changed during AI generation, discarding stale response');
@@ -444,4 +696,5 @@ export const createChatSlice: StateCreator<
     console.log('[clearAllMessages] ✅ Complete - all messages wiped');
     console.log('[clearAllMessages] Messages remaining:', get().messages.length);
   },
-});
+  }; // Close returned object
+}; // Close createChatSlice function
