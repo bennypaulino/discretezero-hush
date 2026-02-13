@@ -619,7 +619,8 @@ export async function generateResponse(
   context: AppFlavor = 'HUSH',
   conversationHistory: Message[] = [], // NEW: conversation context
   conversationSummary?: string | null, // NEW: optional summary (Pro users)
-  responseStyle?: ResponseStyleHush | ResponseStyleClassified | ResponseStyleDiscretion
+  responseStyle?: ResponseStyleHush | ResponseStyleClassified | ResponseStyleDiscretion,
+  onTokenCallback?: (token: string) => void // STREAMING: Optional callback for token-by-token updates
 ): Promise<string> {
   try {
     // Get active model from store
@@ -724,9 +725,9 @@ ${prompt}<end_of_turn>
         stop: ['<end_of_turn>', '<start_of_turn>', '\n\n\n'],
       },
       (data) => {
-        // Progress callback - could use for streaming UI later
-        if (__DEV__ && data.token) {
-          // Log tokens in dev mode
+        // STREAMING: Call token callback for real-time UI updates
+        if (data.token && onTokenCallback) {
+          onTokenCallback(data.token);
         }
       }
     );
@@ -777,7 +778,8 @@ export async function generateGameResponse(
   systemPrompt: string,
   conversationHistory: Array<{ role: 'user' | 'ai', text: string }>,
   userMessage: string,
-  maxTokens: number = 150
+  maxTokens: number = 150,
+  onTokenCallback?: (token: string) => void // STREAMING: Optional callback for token-by-token updates
 ): Promise<string> {
   try {
     // Get active model from store
@@ -837,9 +839,9 @@ ${userMessage}<end_of_turn>
         stop: ['<end_of_turn>', '<start_of_turn>', '\n\n\n'],
       },
       (data) => {
-        // Progress callback - could use for streaming UI later
-        if (__DEV__ && data.token) {
-          // Log tokens in dev mode
+        // STREAMING: Call token callback for real-time UI updates
+        if (data.token && onTokenCallback) {
+          onTokenCallback(data.token);
         }
       }
     );
