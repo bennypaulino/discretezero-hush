@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Linking, Alert, Platform, StyleSheet, Image, Animated } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Linking, Alert, Platform, StyleSheet, Image, Animated, Share } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { captureRef } from 'react-native-view-shot';
@@ -141,7 +141,7 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
   }, []);
 
   // FIXED: Move handleShare to top level (was inside renderAboutScreen)
-  // Prevents potential scope/closure issues and improves consistency
+  // FIXED: Use React Native Share API for URLs/text (expo-sharing is for files only)
   const handleShare = useCallback(async () => {
     console.log('[AboutSettings] handleShare called');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -149,20 +149,20 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
     const url = 'https://hush.app'; // TODO: Replace with actual app URL
 
     try {
-      const isAvailable = await Sharing.isAvailableAsync();
-      console.log('[AboutSettings] Sharing available:', isAvailable);
+      console.log('[AboutSettings] Opening share dialog with Share API');
+      const result = await Share.share({
+        message: `${message}\n\n${url}`,
+        url: url, // iOS will use this for URL sharing
+        title: 'Share Hush',
+      });
 
-      if (isAvailable) {
-        console.log('[AboutSettings] Opening share dialog for URL:', url);
-        await Sharing.shareAsync(url, {
-          dialogTitle: 'Share Hush',
-          mimeType: 'text/plain',
-        });
-        console.log('[AboutSettings] Share completed');
-      } else {
-        // Fallback for platforms without Sharing API
-        console.warn('[AboutSettings] Sharing not available, showing alert fallback');
-        Alert.alert('Share Hush', message);
+      if (result.action === Share.sharedAction) {
+        console.log('[AboutSettings] Share completed successfully');
+        if (result.activityType) {
+          console.log('[AboutSettings] Shared via:', result.activityType);
+        }
+      } else if (result.action === Share.dismissedAction) {
+        console.log('[AboutSettings] Share dialog dismissed');
       }
     } catch (error) {
       console.error('[AboutSettings] Share error:', error);
