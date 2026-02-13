@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Linking, Alert, Platform, StyleSheet, Image, Animated } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Linking, Alert, Platform, StyleSheet, Image, Animated, Share } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { captureRef } from 'react-native-view-shot';
@@ -59,6 +59,37 @@ const getBadgeTierDisplayName = (tier: BadgeTier, flavor: AppFlavor): string => 
   }
 };
 
+/**
+ * Helper: Map badges to their origin flavor
+ * Determines which badges appear in which Achievement Gallery
+ */
+const BADGE_FLAVOR_MAP: Record<string, AppFlavor> = {
+  // Hush badges
+  centered: 'HUSH',
+  grateful: 'HUSH',
+  released: 'HUSH',
+  unburdened: 'HUSH',
+  optimist: 'HUSH',
+  backchannel: 'HUSH', // Discovery badge
+
+  // Classified badges
+  hardened_target: 'CLASSIFIED',
+  security_certified: 'CLASSIFIED',
+  white_hat: 'CLASSIFIED',
+  strategist: 'CLASSIFIED',
+  analyst: 'CLASSIFIED',
+  field_operative: 'CLASSIFIED',
+
+  // Discretion badges
+  steady_hand: 'DISCRETION',
+  closer: 'DISCRETION',
+  decisive: 'DISCRETION',
+
+  // Universal badges (show in all galleries)
+  completionist: 'UNIVERSAL',
+  beta_tester: 'UNIVERSAL',
+};
+
 export const AboutSettings: React.FC<AboutSettingsProps> = ({
   currentScreen,
   onGoBack,
@@ -103,25 +134,43 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
   const handleExportBadges = useCallback(async () => {
     if (!badgeCollectionRef.current) {
       console.error('[AboutSettings] Badge collection ref not ready');
-      Alert.alert('Error', 'Badge collection not ready for export.');
+      Alert.alert('Error', 'Badge collection not ready for export. Please try again.');
       return;
     }
 
     try {
       console.log('[AboutSettings] Starting badge screenshot capture...');
+      console.log('[AboutSettings] Ref current:', badgeCollectionRef.current);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
+      // Wait for next frame to ensure View is fully mounted and rendered
+      await new Promise(resolve => requestAnimationFrame(() => {
+        setTimeout(resolve, 300); // Increased delay for complex layouts
+      }));
+
+      // Double-check ref is still valid
+      if (!badgeCollectionRef.current) {
+        console.error('[AboutSettings] Ref became invalid during delay');
+        Alert.alert('Error', 'Screenshot failed. Please try again.');
+        return;
+      }
+
+      console.log('[AboutSettings] Capturing screenshot...');
       const uri = await captureRef(badgeCollectionRef, {
         format: 'png',
         quality: 1.0,
+        result: 'tmpfile',
       });
 
-      console.log('[AboutSettings] Screenshot captured, URI:', uri);
+      console.log('[AboutSettings] Screenshot captured successfully, URI:', uri);
 
       const isAvailable = await Sharing.isAvailableAsync();
       if (isAvailable) {
         console.log('[AboutSettings] Sharing available, opening share dialog...');
-        await Sharing.shareAsync(uri);
+        await Sharing.shareAsync(uri, {
+          mimeType: 'image/png',
+          dialogTitle: 'Share Badge Collection',
+        });
         console.log('[AboutSettings] Share completed');
       } else {
         console.error('[AboutSettings] Sharing not available on this device');
@@ -129,12 +178,13 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
       }
     } catch (error) {
       console.error('[AboutSettings] Export badges error:', error);
-      Alert.alert('Export Failed', `Could not export badge collection: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      Alert.alert('Export Failed', `Could not export badge collection.\n\nError: ${errorMessage}\n\nTry scrolling the gallery first, then tap Export again.`);
     }
   }, []);
 
   // FIXED: Move handleShare to top level (was inside renderAboutScreen)
-  // Prevents potential scope/closure issues and improves consistency
+  // FIXED: Use React Native Share API for URLs/text (expo-sharing is for files only)
   const handleShare = useCallback(async () => {
     console.log('[AboutSettings] handleShare called');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -142,20 +192,20 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
     const url = 'https://hush.app'; // TODO: Replace with actual app URL
 
     try {
-      const isAvailable = await Sharing.isAvailableAsync();
-      console.log('[AboutSettings] Sharing available:', isAvailable);
+      console.log('[AboutSettings] Opening share dialog with Share API');
+      const result = await Share.share({
+        message: `${message}\n\n${url}`,
+        url: url, // iOS will use this for URL sharing
+        title: 'Share Hush',
+      });
 
-      if (isAvailable) {
-        console.log('[AboutSettings] Opening share dialog for URL:', url);
-        await Sharing.shareAsync(url, {
-          dialogTitle: 'Share Hush',
-          mimeType: 'text/plain',
-        });
-        console.log('[AboutSettings] Share completed');
-      } else {
-        // Fallback for platforms without Sharing API
-        console.warn('[AboutSettings] Sharing not available, showing alert fallback');
-        Alert.alert('Share Hush', message);
+      if (result.action === Share.sharedAction) {
+        console.log('[AboutSettings] Share completed successfully');
+        if (result.activityType) {
+          console.log('[AboutSettings] Shared via:', result.activityType);
+        }
+      } else if (result.action === Share.dismissedAction) {
+        console.log('[AboutSettings] Share dialog dismissed');
       }
     } catch (error) {
       console.error('[AboutSettings] Share error:', error);
@@ -468,14 +518,21 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
     const badges = gameState.badges;
 
     // DEFENSIVE: Ensure badges is iterable
-    const badgeEntries = badges && typeof badges === 'object' ? Object.entries(badges) : [];
+    const allBadgeEntries = badges && typeof badges === 'object' ? Object.entries(badges) : [];
+
+    // FILTER: Only show badges for current flavor + universal badges
+    const badgeEntries = allBadgeEntries.filter(([badgeId]) => {
+      const badgeFlavor = BADGE_FLAVOR_MAP[badgeId];
+      // Show if badge matches current flavor OR is universal
+      return badgeFlavor === effectiveFlavor || badgeFlavor === 'UNIVERSAL';
+    });
 
     // Calculate unlocked badges (where unlockedAt is not null)
     const unlockedBadges = badgeEntries
       .filter(([_, badge]) => badge && badge.unlockedAt !== null && badge.id)
       .map(([_, badge]) => badge.id);
 
-    // Calculate stats
+    // Calculate stats (only for current flavor)
     const totalBadges = badgeEntries.length;
     const unlockedCount = unlockedBadges.length;
 
@@ -526,17 +583,30 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
                 { color: theme.subtext, fontFamily: theme.fontBody },
               ]}
             >
-              {theme.isTerminal ? 'ACHIEVEMENTS_UNLOCKED' : 'Achievements Unlocked'}
+              {theme.isTerminal ? 'BADGES_UNLOCKED' : 'Badges Unlocked'}
+            </Text>
+            <Text
+              style={[
+                styles.galleryProgressTip,
+                { color: theme.subtext, fontFamily: theme.fontBody, fontSize: 12, marginTop: 8, textAlign: 'center' },
+              ]}
+            >
+              {theme.isTerminal
+                ? `${effectiveFlavor}_BADGES_ONLY`
+                : `Showing ${effectiveFlavor === 'HUSH' ? 'Hush' : 'Classified'} badges only`}
             </Text>
           </View>
 
-          {/* Badge Grid */}
+          {/* Badge Grid - Wrapper for screenshot */}
           <View
             ref={badgeCollectionRef}
             collapsible={false}
             style={{
-              backgroundColor: theme.bg,
-              padding: 16,
+              // Use semi-transparent background that works for screenshots
+              // Pure black causes issues with captureRef
+              backgroundColor: theme.isTerminal ? '#1a0f2e' : theme.bg,
+              padding: 20,
+              borderRadius: 12,
             }}
           >
             <View style={styles.badgeGrid}>
