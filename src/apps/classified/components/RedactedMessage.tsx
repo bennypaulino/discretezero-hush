@@ -1,6 +1,5 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing } from 'react-native';
-import { Typewriter } from '../../../core/ui/Typewriter';
 import { ClassifiedBurnType } from '../../../core/state/rootStore';
 import { useScrambleText } from '../../../core/hooks/useScrambleText';
 import { usePrivacyBlur } from '../../../core/hooks/usePrivacyBlur'
@@ -81,25 +80,21 @@ export const RedactedMessage = React.memo(({
                  <Text style={[styles.logText, { color: 'transparent' }]}>{text.toUpperCase()}</Text>
              </View>
         ) : (
-             // REVEALED STATE
-             role === 'ai' && !isPurging ? (
-                 <Typewriter text={text.toUpperCase()} style={[styles.logText, { color: sysColor }]} speed={5} enableHaptics={true} />
-             ) : (
-                 <Text style={[
-                     styles.logText,
-                     {
-                         // Apply the flicker logic
-                         color: getTextColor(),
+             // REVEALED STATE - No typewriter, just direct text (streaming handles animation)
+             <Text style={[
+                 styles.logText,
+                 {
+                     // Apply the flicker logic for corrupting, otherwise use standard color
+                     color: isCorrupting ? getTextColor() : (role === 'ai' ? sysColor : getTextColor()),
 
-                         // Shadow flickers with the color for extra intensity
-                         textShadowColor: isCorrupting ? getTextColor() : 'transparent',
-                         textShadowOffset: isCorrupting ? { width: 0, height: 0 } : { width: 0, height: 0 },
-                         textShadowRadius: isCorrupting ? 4 : 0
-                     }
-                 ]}>
-                    {isCorrupting ? displayedText : text.toUpperCase()}
-                 </Text>
-             )
+                     // Shadow flickers with the color for extra intensity
+                     textShadowColor: isCorrupting ? getTextColor() : 'transparent',
+                     textShadowOffset: isCorrupting ? { width: 0, height: 0 } : { width: 0, height: 0 },
+                     textShadowRadius: isCorrupting ? 4 : 0
+                 }
+             ]}>
+                {isCorrupting ? displayedText : text.toUpperCase()}
+             </Text>
         )}
       </View>
     </TouchableOpacity>
