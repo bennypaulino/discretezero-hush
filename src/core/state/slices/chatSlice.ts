@@ -23,6 +23,9 @@ import {
   estimateTokens,
 } from '../../utils/tokenCounter';
 import type { AppFlavor, Message, ResponseStyleHush, ResponseStyleClassified, ResponseStyleDiscretion, GameId, PerformanceMode } from '../types';
+import { getModelProfile } from '../../engine/modelProfiles';
+import { getDeviceProfile } from '../../utils/deviceCapabilities';
+import { calculateContextBudgets, validateUserMessageLength } from '../../utils/contextBudgetCalculator';
 
 declare const __DEV__: boolean;
 
@@ -64,6 +67,7 @@ interface DiscoverySliceMinimal {
 
 interface PerformanceSliceMinimal {
   activeMode: PerformanceMode;
+  deviceCapabilities: { chipGeneration: string; totalMemoryGB: number } | null;
 }
 
 /**
@@ -118,9 +122,10 @@ export const createChatSlice: StateCreator<
   /**
    * Get conversation history for AI context
    *
-   * FREE TIER: Sliding window - last N message pairs
-   * - Efficient mode: 3 pairs (6 messages)
-   * - Balanced/Quality: 5 pairs (10 messages)
+   * FREE TIER: Token-based sliding window (Phase 5: Dynamic Context Budgets)
+   * - Calculates available history tokens based on model + device + tier
+   * - Builds history backwards from most recent until budget reached
+   * - Ensures we never exceed calculated conversationHistoryTokens budget
    *
    * PRO TIER: Full history
    * - Returns all messages for current flavor
@@ -130,13 +135,17 @@ export const createChatSlice: StateCreator<
    * @param flavor - Current flavor (HUSH, CLASSIFIED, DISCRETION)
    * @param subscriptionTier - User's subscription tier
    * @param activeMode - Current performance mode
+   * @param responseStyle - Current response style (for budget calculation)
+   * @param deviceCapabilities - Device capabilities from store
    * @returns Filtered message history for AI
    */
   const getConversationHistory = (
     messages: Message[],
     flavor: AppFlavor,
     subscriptionTier: 'FREE' | 'MONTHLY' | 'YEARLY',
-    activeMode: PerformanceMode
+    activeMode: PerformanceMode,
+    responseStyle?: ResponseStyleHush | ResponseStyleClassified | ResponseStyleDiscretion,
+    deviceCapabilities?: { chipGeneration: string; totalMemoryGB: number } | null
   ): Message[] => {
     // Filter to current flavor, exclude system messages
     // System messages are UI alerts, not part of conversation
@@ -150,21 +159,49 @@ export const createChatSlice: StateCreator<
       return flavorMessages;
     }
 
-    // FREE USERS: Sliding window
-    // Efficient mode: 3 pairs (6 messages) ≈ 300-500 tokens
-    // Balanced/Quality: 5 pairs (10 messages) ≈ 500-800 tokens
-    const maxPairs = activeMode === 'efficient' ? 3 : 5;
+    // === FREE USERS: TOKEN-BASED SLIDING WINDOW (Phase 5) ===
+    // Calculate dynamic budget based on model + device + tier
+    const modelProfile = getModelProfile(activeMode);
+    const deviceProfile = getDeviceProfile(
+      deviceCapabilities?.chipGeneration || 'A14',
+      deviceCapabilities?.totalMemoryGB || 4
+    );
 
-    // Take last N*2 messages (N pairs = N user + N AI)
-    const recentMessages = flavorMessages.slice(-maxPairs * 2);
+    const budgets = calculateContextBudgets(
+      modelProfile,
+      deviceProfile,
+      subscriptionTier,
+      responseStyle || 'quick'
+    );
 
-    if (__DEV__ && flavorMessages.length > recentMessages.length) {
+    // Build history backwards from most recent, stopping when budget reached
+    const historyBudget = budgets.conversationHistoryTokens;
+    const selectedMessages: Message[] = [];
+    let accumulatedTokens = 0;
+
+    // Iterate backwards through messages (most recent first)
+    for (let i = flavorMessages.length - 1; i >= 0; i--) {
+      const msg = flavorMessages[i];
+      const msgTokens = estimateTokens(msg.text);
+
+      // Check if adding this message would exceed budget
+      if (accumulatedTokens + msgTokens > historyBudget) {
+        // Budget reached - stop adding messages
+        break;
+      }
+
+      // Add message (prepend since we're going backwards)
+      selectedMessages.unshift(msg);
+      accumulatedTokens += msgTokens;
+    }
+
+    if (__DEV__ && flavorMessages.length > selectedMessages.length) {
       console.log(
-        `[Memory] Free tier sliding window: Showing ${recentMessages.length}/${flavorMessages.length} messages (last ${maxPairs} pairs)`
+        `[Memory] Free tier token-based sliding window: ${selectedMessages.length}/${flavorMessages.length} messages (${accumulatedTokens}/${historyBudget} tokens)`
       );
     }
 
-    return recentMessages;
+    return selectedMessages;
   };
 
   /**
@@ -423,6 +460,48 @@ Summary:`;
 
     let state = get();
 
+    // === PHASE 6: USER INPUT VALIDATION (Free tier 600 token limit) ===
+    // Calculate budgets to check message length limits
+    const modelProfile = getModelProfile(state.activeMode);
+    const deviceProfile = getDeviceProfile(
+      state.deviceCapabilities?.chipGeneration || 'A14',
+      state.deviceCapabilities?.totalMemoryGB || 4
+    );
+
+    // Determine response style for budget calculation
+    const responseStyle =
+      state.flavor === 'HUSH'
+        ? state.responseStyleHush
+        : state.flavor === 'CLASSIFIED'
+        ? state.responseStyleClassified
+        : state.flavor === 'DISCRETION'
+        ? state.responseStyleDiscretion
+        : 'quick';
+
+    const budgets = calculateContextBudgets(
+      modelProfile,
+      deviceProfile,
+      state.subscriptionTier,
+      responseStyle
+    );
+
+    // Validate message length (Free tier only)
+    const messageTokens = estimateTokens(sanitizedText);
+    const lengthValidation = validateUserMessageLength(messageTokens, budgets);
+
+    if (!lengthValidation.valid) {
+      // Message exceeds Free tier limit - show error and block
+      if (__DEV__) {
+        console.warn('[sendMessage] Message exceeds Free tier limit:', lengthValidation.error);
+      }
+
+      state.addMessage(
+        `⚠️ ${lengthValidation.error}`,
+        'system'
+      );
+      return;
+    }
+
     // Check for daily reset before processing message
     state.checkDailyReset();
 
@@ -527,12 +606,14 @@ Summary:`;
         ? (capturedFlavor === 'HUSH' ? state.customDecoyHushMessages : state.customDecoyClassifiedMessages)
         : state.messages;
 
-      // Get conversation history (sliding window for Free, full for Pro)
+      // Get conversation history (token-based sliding window for Free, full for Pro)
       const conversationHistory = getConversationHistory(
         messagesArray,
         capturedFlavor,
         state.subscriptionTier,
-        state.activeMode
+        state.activeMode,
+        responseStyle,
+        state.deviceCapabilities
       );
 
       // Get summary if available (Pro users only)

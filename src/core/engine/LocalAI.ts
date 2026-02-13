@@ -12,6 +12,9 @@ import type { AppFlavor } from '../../config';
 import type { ResponseStyleHush, ResponseStyleClassified, ResponseStyleDiscretion, PerformanceMode, Message } from '../state/rootStore';
 import { useChatStore } from '../state/rootStore';
 import { estimateTokens } from '../utils/tokenCounter';
+import { getModelProfile } from './modelProfiles';
+import { getDeviceProfile } from '../utils/deviceCapabilities';
+import { calculateContextBudgets } from '../utils/contextBudgetCalculator';
 
 // Model configurations
 interface ModelConfig {
@@ -645,6 +648,34 @@ export async function generateResponse(
       throw new Error('Model not initialized');
     }
 
+    // === CALCULATE DYNAMIC CONTEXT BUDGETS (Phase 4: AI Self-Awareness) ===
+    const store = useChatStore.getState();
+    const modelProfile = getModelProfile(activeMode);
+
+    // Get device capabilities (chip + RAM)
+    const deviceProfile = getDeviceProfile(
+      store.deviceCapabilities?.chipGeneration || 'A14',
+      store.deviceCapabilities?.totalMemoryGB || 4
+    );
+
+    // Calculate budgets combining model + device + tier + style
+    const budgets = calculateContextBudgets(
+      modelProfile,
+      deviceProfile,
+      store.subscriptionTier,
+      responseStyle || 'quick'
+    );
+
+    if (__DEV__) {
+      console.log('[LocalAI] Context budgets:', {
+        maxAIResponseTokens: budgets.maxAIResponseTokens,
+        estimatedResponseTime: budgets.estimatedResponseTime,
+        conversationHistoryTokens: budgets.conversationHistoryTokens,
+        totalAvailableContext: budgets.totalAvailableContext,
+        deviceScaling: budgets.deviceScalingApplied,
+      });
+    }
+
     // Select system prompt (same logic as GroqAI)
     let systemPrompt: string;
 
@@ -660,8 +691,15 @@ export async function generateResponse(
       systemPrompt = PERSONALITIES.DISCRETION[style];
     }
 
-    // Adjust max tokens based on style (same as GroqAI)
-    const maxTokens = (responseStyle === 'quick' || responseStyle === 'operator' || responseStyle === 'formal') ? 150 : 400;
+    // === INJECT BUDGET AWARENESS INTO SYSTEM PROMPT ===
+    // This prevents mid-sentence cutoffs by making AI aware of its token limits
+    const wordEstimate = Math.floor(budgets.maxAIResponseTokens * 0.75);
+    systemPrompt += `\n\nRESPONSE_BUDGET: ${budgets.maxAIResponseTokens} tokens (~${wordEstimate} words)
+CONSTRAINT: Complete your thought within budget. No mid-sentence cutoffs.
+ESTIMATED_TIME: ~${budgets.estimatedResponseTime} seconds`;
+
+    // Use calculated budget instead of hardcoded values
+    const maxTokens = budgets.maxAIResponseTokens;
 
     // === BUILD MULTI-TURN PROMPT WITH CONVERSATION HISTORY (P1.10) ===
     // Using Gemma/Llama chat template format: <start_of_turn>{role}\n{text}<end_of_turn>\n
@@ -807,6 +845,37 @@ export async function generateGameResponse(
 
     if (!llamaContext) {
       throw new Error('Model not initialized');
+    }
+
+    // === CALCULATE DYNAMIC CONTEXT BUDGETS FOR GAMES (Phase 4: AI Self-Awareness) ===
+    const store = useChatStore.getState();
+    const modelProfile = getModelProfile(activeMode);
+
+    // Get device capabilities (chip + RAM)
+    const deviceProfile = getDeviceProfile(
+      store.deviceCapabilities?.chipGeneration || 'A14',
+      store.deviceCapabilities?.totalMemoryGB || 4
+    );
+
+    // Games use 'quick' style budgets for fast responses
+    const budgets = calculateContextBudgets(
+      modelProfile,
+      deviceProfile,
+      store.subscriptionTier,
+      'quick'
+    );
+
+    // Use calculated budget (override default parameter if not explicitly set)
+    if (maxTokens === 150) {
+      // User didn't specify custom maxTokens, use calculated budget
+      maxTokens = budgets.maxAIResponseTokens;
+    }
+
+    if (__DEV__) {
+      console.log('[LocalAI] Game budgets:', {
+        maxTokens,
+        estimatedResponseTime: budgets.estimatedResponseTime,
+      });
     }
 
     // Build conversation context
