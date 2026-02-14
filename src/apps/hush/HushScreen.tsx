@@ -201,6 +201,7 @@ export const HushScreen = () => {
     input,
     subscriptionTier,
     subtextColor: activeTheme.colors.subtext,
+    isInputEditable: true, // Hush: Always editable
   });
 
   // --- AUTOMATIC PAYWALL LISTENER ---

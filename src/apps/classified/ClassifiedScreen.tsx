@@ -157,6 +157,7 @@ export const ClassifiedScreen = ({
     input,
     subscriptionTier,
     subtextColor: theme.colors.subtext,
+    isInputEditable: isPro, // Classified: Only Pro users can type
   });
 
   // --- AUTO-SCROLL ON NEW MESSAGES ---

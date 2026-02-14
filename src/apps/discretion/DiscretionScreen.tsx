@@ -126,6 +126,7 @@ export const DiscretionScreen = () => {
     input,
     subscriptionTier,
     subtextColor: appTheme.colors.subtext,
+    isInputEditable: true, // Discretion: Always editable
   });
 
   // --- AUTO-SCROLL ON NEW MESSAGES ---

@@ -12,12 +12,14 @@ interface TokenCounterParams {
   input: string;
   subscriptionTier: 'FREE' | 'MONTHLY' | 'YEARLY';
   subtextColor: string; // Default color from theme
+  isInputEditable: boolean; // Whether user can type (e.g., Classified requires Pro)
 }
 
 /**
  * Custom hook for live token counter with tier-appropriate visibility and warnings
  *
  * Behavior:
+ * - If input not editable: Returns hidden/non-blocking (e.g., Classified for Free users)
  * - FREE tier: Shows at 80%+ of 600 token limit, format "X / 600 tokens"
  * - PRO tier: Shows at 80%+ of 10k token limit, format "X tokens remaining"
  * - Warning thresholds: 88% (Yellow), 94% (Orange), 100% (Red + Blocking)
@@ -25,14 +27,21 @@ interface TokenCounterParams {
  * @param input - User input text
  * @param subscriptionTier - User's subscription tier
  * @param subtextColor - Default color from theme for normal state
+ * @param isInputEditable - Whether user can type in the input field
  * @returns Token counter display info with blocking state
  */
 export function useTokenCounter({
   input,
   subscriptionTier,
   subtextColor,
+  isInputEditable,
 }: TokenCounterParams): TokenCounterResult {
   return useMemo(() => {
+    // If input is not editable, user can't type → no counter needed
+    if (!isInputEditable) {
+      return { text: '', color: '', show: false, isBlocking: false };
+    }
+
     const tokenCount = estimateTokens(input);
 
     // Free tier: 600 token limit
@@ -92,5 +101,5 @@ export function useTokenCounter({
       show: true,
       isBlocking: percentage >= 100,
     };
-  }, [input, subscriptionTier, subtextColor]);
+  }, [input, subscriptionTier, subtextColor, isInputEditable]);
 }
