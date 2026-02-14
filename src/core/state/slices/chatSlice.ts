@@ -97,6 +97,7 @@ export interface ChatSlice {
   streamingMessageId: string | null; // ID of message currently streaming
   streamingText: string; // Accumulated text being streamed
   streamingTokenCount: number; // Number of tokens streamed so far
+  placeholderTimeoutId: NodeJS.Timeout | null; // Timeout to clear stuck placeholders (15s)
 
   // --- ACTIONS ---
   toggleFlavor: () => void;
@@ -347,6 +348,7 @@ Summary:`;
   streamingMessageId: null,
   streamingText: '',
   streamingTokenCount: 0,
+  placeholderTimeoutId: null,
 
   // --- ACTIONS ---
   toggleFlavor: () => {
@@ -659,6 +661,40 @@ Summary:`;
       // Start streaming state
       get().startStreaming(streamingMessageId);
 
+      // Set 15-second timeout to clear stuck placeholder if streaming fails
+      const timeoutId = setTimeout(() => {
+        const currentState = get();
+        // Only clear if this placeholder is still the active streaming message
+        if (currentState.streamingMessageId === streamingMessageId) {
+          if (__DEV__) {
+            console.log('[sendMessage] Placeholder timeout fired - clearing stuck typing indicator');
+          }
+
+          // Remove placeholder message from appropriate array
+          if (state.isDecoyMode) {
+            if (capturedFlavor === 'HUSH') {
+              set((s) => ({
+                customDecoyHushMessages: s.customDecoyHushMessages.filter(m => m.id !== streamingMessageId),
+              }));
+            } else if (capturedFlavor === 'CLASSIFIED') {
+              set((s) => ({
+                customDecoyClassifiedMessages: s.customDecoyClassifiedMessages.filter(m => m.id !== streamingMessageId),
+              }));
+            }
+          } else {
+            set((s) => ({
+              messages: s.messages.filter(m => m.id !== streamingMessageId),
+            }));
+          }
+
+          // Clear streaming state
+          get().finishStreaming();
+        }
+      }, 15000); // 15 seconds
+
+      // Store timeout ID so it can be cleared on successful completion
+      set({ placeholderTimeoutId: timeoutId });
+
       // Call AI with streaming callback
       const response = await generateResponse(
         sanitizedText,
@@ -950,10 +986,17 @@ Summary:`;
    * Marks streaming as complete and clears streaming state
    */
   finishStreaming: () => {
+    // Clear placeholder timeout if it exists
+    const currentState = get();
+    if (currentState.placeholderTimeoutId) {
+      clearTimeout(currentState.placeholderTimeoutId);
+    }
+
     set({
       streamingMessageId: null,
       streamingText: '',
       streamingTokenCount: 0,
+      placeholderTimeoutId: null,
     });
   },
   }; // Close returned object

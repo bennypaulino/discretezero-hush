@@ -35,7 +35,7 @@ import { shouldOfferBalanced } from '../../core/utils/deviceCapabilities';
 // STREAMING (P1.11 Phase 0): Keep screen awake during AI generation
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 // TOKEN COUNTER (P1.11 Phase 6.5): Live token counter
-import { estimateTokens } from '../../core/utils/tokenCounter';
+import { useTokenCounter } from '../../core/hooks/useTokenCounter';
 
 
 export const HushScreen = () => {
@@ -196,43 +196,12 @@ export const HushScreen = () => {
   const displayMessages = useFilteredMessages('HUSH');
 
   // --- TOKEN COUNTER (P1.11 Phase 6.5) ---
-  const tokenCountInfo = useMemo(() => {
-    const tokenCount = estimateTokens(input);
-    const FREE_LIMIT = 600;
-
-    // Free tier: show limit and color coding
-    if (subscriptionTier === 'FREE') {
-      const percentage = (tokenCount / FREE_LIMIT) * 100;
-      let color = activeTheme.colors.subtext; // Default gray
-
-      if (percentage >= 100) {
-        color = '#FF0000'; // Red - blocking
-      } else if (percentage >= 95) {
-        color = '#FF8800'; // Orange - critical warning
-      } else if (percentage >= 90) {
-        color = '#FFBB00'; // Yellow - warning
-      }
-
-      return {
-        text: `${tokenCount} / ${FREE_LIMIT} tokens`,
-        color,
-        show: true,
-      };
-    }
-
-    // Pro tier: only show when approaching hard cap (10,000 tokens)
-    const PRO_HARD_CAP = 10000;
-    if (tokenCount >= PRO_HARD_CAP * 0.8) {
-      const remaining = PRO_HARD_CAP - tokenCount;
-      return {
-        text: `${remaining} tokens remaining`,
-        color: remaining < 1000 ? '#FF8800' : activeTheme.colors.subtext,
-        show: true,
-      };
-    }
-
-    return { text: '', color: '', show: false };
-  }, [input, subscriptionTier, activeTheme.colors.subtext]);
+  // TOKEN COUNTER (P1.11 Phase 6.5): Live token counter with blocking
+  const tokenCountInfo = useTokenCounter({
+    input,
+    subscriptionTier,
+    subtextColor: activeTheme.colors.subtext,
+  });
 
   // --- AUTOMATIC PAYWALL LISTENER ---
   // PaywallModal now renders independently based on showPaywall state
@@ -731,10 +700,18 @@ Choose what you need right now.`;
                     </View>
                     <TouchableOpacity
                         onPress={handleSend}
+                        disabled={tokenCountInfo.isBlocking}
                         accessibilityLabel="Send message"
                         accessibilityRole="button"
+                        accessibilityHint={tokenCountInfo.isBlocking ? 'Message exceeds token limit' : undefined}
                     >
-                        <Text style={{ color: activeTheme.colors.primary, fontWeight: 'bold' }}>Send</Text>
+                        <Text style={{
+                            color: tokenCountInfo.isBlocking ? '#666' : activeTheme.colors.primary,
+                            fontWeight: 'bold',
+                            opacity: tokenCountInfo.isBlocking ? 0.5 : 1,
+                        }}>
+                            Send
+                        </Text>
                     </TouchableOpacity>
                 </View>
             </View>

@@ -29,7 +29,7 @@ import { shouldOfferBalanced } from '../../core/utils/deviceCapabilities';
 // STREAMING (P1.11 Phase 0): Keep screen awake during AI generation
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 // TOKEN COUNTER (P1.11 Phase 6.5): Live token counter
-import { estimateTokens } from '../../core/utils/tokenCounter';
+import { useTokenCounter } from '../../core/hooks/useTokenCounter';
 
 // Typewriter configs
 const TITLE = 'CLASSIFIED';
@@ -152,43 +152,12 @@ export const ClassifiedScreen = ({
   const displayMessages = useFilteredMessages('CLASSIFIED');
 
   // --- TOKEN COUNTER (P1.11 Phase 6.5) ---
-  const tokenCountInfo = useMemo(() => {
-    const tokenCount = estimateTokens(input);
-    const FREE_LIMIT = 600;
-
-    // Free tier: show limit and color coding
-    if (subscriptionTier === 'FREE') {
-      const percentage = (tokenCount / FREE_LIMIT) * 100;
-      let color = theme.colors.subtext; // Default gray
-
-      if (percentage >= 100) {
-        color = '#FF0000'; // Red - blocking
-      } else if (percentage >= 95) {
-        color = '#FF8800'; // Orange - critical warning
-      } else if (percentage >= 90) {
-        color = '#FFBB00'; // Yellow - warning
-      }
-
-      return {
-        text: `${tokenCount} / ${FREE_LIMIT} tokens`,
-        color,
-        show: true,
-      };
-    }
-
-    // Pro tier: only show when approaching hard cap (10,000 tokens)
-    const PRO_HARD_CAP = 10000;
-    if (tokenCount >= PRO_HARD_CAP * 0.8) {
-      const remaining = PRO_HARD_CAP - tokenCount;
-      return {
-        text: `${remaining} tokens remaining`,
-        color: remaining < 1000 ? '#FF8800' : theme.colors.subtext,
-        show: true,
-      };
-    }
-
-    return { text: '', color: '', show: false };
-  }, [input, subscriptionTier, theme.colors.subtext]);
+  // TOKEN COUNTER (P1.11 Phase 6.5): Live token counter with blocking
+  const tokenCountInfo = useTokenCounter({
+    input,
+    subscriptionTier,
+    subtextColor: theme.colors.subtext,
+  });
 
   // --- AUTO-SCROLL ON NEW MESSAGES ---
   // Scroll to bottom when messages change (e.g., AI responds)
@@ -955,13 +924,14 @@ Type any protocol keyword to begin.`;
             </View>
             <TouchableOpacity
               onPress={handleSend}
-              disabled={isInIntro || !isPro}
+              disabled={isInIntro || !isPro || tokenCountInfo.isBlocking}
               accessibilityLabel="Execute command"
               accessibilityRole="button"
+              accessibilityHint={tokenCountInfo.isBlocking ? 'Message exceeds token limit' : undefined}
             >
               <Text style={[styles.sendBtn, {
-                backgroundColor: !isPro ? 'rgba(255, 0, 0, 0.3)' : TACTICAL_COLOR,
-                color: !isPro ? 'rgba(255, 255, 255, 0.3)' : '#000'
+                backgroundColor: (!isPro || tokenCountInfo.isBlocking) ? 'rgba(255, 0, 0, 0.3)' : TACTICAL_COLOR,
+                color: (!isPro || tokenCountInfo.isBlocking) ? 'rgba(255, 255, 255, 0.3)' : '#000'
               }]}>EXEC</Text>
             </TouchableOpacity>
           </Animated.View>

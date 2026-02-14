@@ -21,15 +21,15 @@ export const TypingIndicator: React.FC<TypingIndicatorProps> = ({ flavor, color 
     return <TerminalSpinner color={color} />;
   }
 
-  // Hush/Discretion: Bouncing dots animation
-  return <BouncingDots color={color} />;
+  // Hush/Discretion: Squishing dots animation
+  return <SquishingDots color={color} />;
 };
 
 /**
  * Squishing dots animation for Hush and Discretion modes
  * Progressive animation where each dot squishes (color + compress + sink) in sequence
  */
-const BouncingDots: React.FC<{ color: string }> = ({ color }) => {
+const SquishingDots: React.FC<{ color: string }> = ({ color }) => {
   // Progress values for each dot (0 = normal, 1 = fully squished)
   const dot1Progress = useRef(new Animated.Value(0)).current;
   const dot2Progress = useRef(new Animated.Value(0)).current;
