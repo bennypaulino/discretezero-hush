@@ -126,7 +126,7 @@ export function PrivacyVerification({
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={onClose} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={accentColor} />
           <Text style={[styles.backText, { color: accentColor }]}>Back</Text>

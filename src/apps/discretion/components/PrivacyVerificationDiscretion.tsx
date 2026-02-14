@@ -157,7 +157,7 @@ export function PrivacyVerificationDiscretion({
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: borderColor }]}>
+      <View style={[styles.header, { borderBottomColor: borderColor, paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={onClose} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={accentColor} />
           <Text style={[styles.backText, { color: accentColor }]}>Back</Text>
