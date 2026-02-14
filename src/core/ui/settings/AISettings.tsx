@@ -20,6 +20,7 @@ import type { SettingsTheme } from '../../themes/settingsThemeEngine';
 import { downloadModel, deleteModel, cancelDownload, hasActiveDownload } from '../../engine/LocalAI';
 import { getBalancedWarning, getQualityWarning, canDownloadQuality } from '../../utils/deviceCapabilities';
 import type { AIScreen } from './shared/types';
+import { estimateConversationTokens, getContextWindowSize, getContextUsagePercent } from '../../utils/tokenCounter';
 
 interface AISettingsProps {
   currentScreen: AIScreen;
@@ -56,6 +57,11 @@ export const AISettings: React.FC<AISettingsProps> = ({
   const subscriptionTier = useChatStore((state) => state.subscriptionTier);
   const classifiedTheme = useChatStore((state) => state.classifiedTheme);
   const triggerPaywall = useChatStore((state) => state.triggerPaywall);
+  const messages = useChatStore((state) => state.messages);
+  const responseStyleHush = useChatStore((state) => state.responseStyleHush);
+  const responseStyleClassified = useChatStore((state) => state.responseStyleClassified);
+  const responseStyleDiscretion = useChatStore((state) => state.responseStyleDiscretion);
+  const clearHistory = useChatStore((state) => state.clearHistory);
 
   // Download resume tracking
   const downloadResumeInProgress = useRef(false);
@@ -712,6 +718,138 @@ export const AISettings: React.FC<AISettingsProps> = ({
             </View>
           </View>
         </View>
+
+        {/* CURRENT MEMORY USAGE (Phase 7 Part 2) */}
+        {(() => {
+          // Calculate current conversation memory usage
+          // Determine active response style based on current flavor
+          const currentResponseStyle =
+            effectiveMode === 'HUSH'
+              ? responseStyleHush
+              : effectiveMode === 'CLASSIFIED'
+              ? responseStyleClassified
+              : effectiveMode === 'DISCRETION'
+              ? responseStyleDiscretion
+              : 'quick'; // Fallback for BLOCKER mode
+
+          const systemPromptLength =
+            currentResponseStyle === 'quick' ||
+            currentResponseStyle === 'operator' ||
+            currentResponseStyle === 'warm'
+              ? 'short'
+              : 'long';
+          const currentTokens = estimateConversationTokens(messages, systemPromptLength);
+          const contextWindow = getContextWindowSize(activeMode);
+          const usagePercent = getContextUsagePercent(currentTokens, activeMode);
+          const messageCount = messages.length;
+          const userMessageCount = messages.filter(m => m.role === 'user').length;
+
+          // Determine progress bar color based on usage
+          let progressColor = theme.accent;
+          if (usagePercent >= 95) progressColor = '#FF0000'; // Red
+          else if (usagePercent >= 80) progressColor = '#FF8800'; // Orange
+          else if (usagePercent >= 60) progressColor = '#FFBB00'; // Yellow
+
+          return (
+            <View style={[styles.memoryCard, { backgroundColor: theme.card, marginTop: 20, borderLeftWidth: 3, borderLeftColor: progressColor }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons name="stats-chart" size={20} color={progressColor} />
+                  <Text style={[styles.memoryTitle, { color: theme.text, fontFamily: theme.fontBody, marginLeft: 8 }]}>
+                    {theme.isTerminal ? 'MEMORY_USAGE' : 'Current Memory Usage'}
+                  </Text>
+                </View>
+                <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 13 }}>
+                  {usagePercent.toFixed(0)}%
+                </Text>
+              </View>
+
+              {/* Progress Bar */}
+              <View style={{ height: 8, backgroundColor: theme.divider, borderRadius: 4, overflow: 'hidden', marginBottom: 12 }}>
+                <View style={{ height: '100%', width: `${Math.min(100, usagePercent)}%`, backgroundColor: progressColor, borderRadius: 4 }} />
+              </View>
+
+              {/* Stats */}
+              <Text style={[styles.memorySubtext, { color: theme.subtext, fontFamily: theme.fontBody }]}>
+                {theme.isTerminal
+                  ? `TOKENS: ${currentTokens.toLocaleString()} / ${contextWindow.toLocaleString()} • MESSAGES: ${messageCount} (${userMessageCount} USER)`
+                  : `${currentTokens.toLocaleString()} / ${contextWindow.toLocaleString()} tokens • ${messageCount} messages (${userMessageCount} exchanges)`}
+              </Text>
+
+              {/* Tier-specific messaging */}
+              {subscriptionTier === 'FREE' ? (
+                <View style={{ marginTop: 12, padding: 10, backgroundColor: theme.bg, borderRadius: 8 }}>
+                  <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 13, lineHeight: 18 }}>
+                    {theme.isTerminal
+                      ? 'FREE_TIER_SLIDING_WINDOW_OLDER_MESSAGES_DISCARDED_UPGRADE_PRO_FOR_SUMMARIZATION'
+                      : '📌 Free tier: Older messages slide out of context. Upgrade to Pro for automatic summarization and extended memory.'}
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  {usagePercent >= 80 ? (
+                    <View style={{ marginTop: 12, padding: 10, backgroundColor: theme.bg, borderRadius: 8 }}>
+                      <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 13, lineHeight: 18 }}>
+                        {theme.isTerminal
+                          ? 'PRO_AUTO_SUMMARIZATION_TRIGGERS_AT_80_PERCENT_OLDER_MESSAGES_COMPRESSED'
+                          : '✨ Pro: Approaching capacity. Older messages will be automatically summarized to maintain performance.'}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={{ marginTop: 12, padding: 10, backgroundColor: theme.bg, borderRadius: 8 }}>
+                      <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 13, lineHeight: 18 }}>
+                        {theme.isTerminal
+                          ? 'PRO_FULL_CONTEXT_AVAILABLE_AUTO_SUMMARIZATION_AT_80_PERCENT'
+                          : '✨ Pro: Full context available. Auto-summarization triggers at 80% capacity.'}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Manual Archive Button (Pro only) */}
+                  {messageCount > 0 && (
+                    <TouchableOpacity
+                      style={{
+                        marginTop: 12,
+                        padding: 12,
+                        backgroundColor: theme.bg,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: theme.divider,
+                      }}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        Alert.alert(
+                          theme.isTerminal ? 'CLEAR_HISTORY' : 'Clear Conversation',
+                          theme.isTerminal
+                            ? 'DELETE_ALL_MESSAGES_PERMANENT_CANNOT_UNDO'
+                            : 'This will permanently delete all messages in this conversation. This cannot be undone.',
+                          [
+                            { text: theme.isTerminal ? 'CANCEL' : 'Cancel', style: 'cancel' },
+                            {
+                              text: theme.isTerminal ? 'DELETE' : 'Clear History',
+                              style: 'destructive',
+                              onPress: () => {
+                                clearHistory();
+                                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                              },
+                            },
+                          ]
+                        );
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="trash-outline" size={18} color={theme.subtext} />
+                        <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 14, marginLeft: 8 }}>
+                          {theme.isTerminal ? 'CLEAR_HISTORY' : 'Clear Conversation History'}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                </>
+              )}
+            </View>
+          );
+        })()}
 
         <Text style={[styles.sectionTitle, { color: theme.text, fontFamily: theme.fontBody, marginTop: 24 }]}>
           {theme.isTerminal ? 'HOW_AI_MEMORY_WORKS' : 'How AI Memory Works'}
