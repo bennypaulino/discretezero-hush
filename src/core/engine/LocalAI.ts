@@ -694,9 +694,22 @@ export async function generateResponse(
     // === INJECT BUDGET AWARENESS INTO SYSTEM PROMPT ===
     // This prevents mid-sentence cutoffs by making AI aware of its token limits
     const wordEstimate = Math.floor(budgets.maxAIResponseTokens * 0.75);
-    systemPrompt += `\n\nRESPONSE_BUDGET: ${budgets.maxAIResponseTokens} tokens (~${wordEstimate} words)
+    const isQuickMode =
+      responseStyle === 'quick' ||
+      responseStyle === 'operator' ||
+      responseStyle === 'warm';
+
+    if (isQuickMode) {
+      // Quick mode: Emphasize extreme brevity (1-2 sentences)
+      systemPrompt += `\n\nCRITICAL CONSTRAINT: Your response MUST be 1-2 complete sentences. Be concise and direct.
+BUDGET: ${budgets.maxAIResponseTokens} tokens (~${wordEstimate} words max)
+DO NOT elaborate or provide additional context. Answer the question directly and stop.`;
+    } else {
+      // Thoughtful mode: Allow detailed responses within budget
+      systemPrompt += `\n\nRESPONSE_BUDGET: ${budgets.maxAIResponseTokens} tokens (~${wordEstimate} words)
 CONSTRAINT: Complete your thought within budget. No mid-sentence cutoffs.
 ESTIMATED_TIME: ~${budgets.estimatedResponseTime} seconds`;
+    }
 
     // Use calculated budget instead of hardcoded values
     const maxTokens = budgets.maxAIResponseTokens;
