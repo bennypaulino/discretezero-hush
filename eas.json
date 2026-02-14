@@ -9,7 +9,7 @@
       "distribution": "internal",
       "autoIncrement": true,
       "ios": {
-        "simulator": true
+        "simulator": false
       },
       "android": {
         "buildType": "apk"
