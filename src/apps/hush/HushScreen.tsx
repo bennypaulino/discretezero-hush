@@ -528,8 +528,24 @@ Choose what you need right now.`;
   const renderItem = useCallback(({ item }: { item: Message }) => {
     // STREAMING (P1.11 Phase 0): Use streaming text for messages being generated
     const displayText = item.id === streamingMessageId ? streamingText : item.text;
+
+    // TYPING INDICATOR (P1.11 Phase 7): Show typing animation for placeholder messages
+    // Placeholder messages have empty text and are waiting for AI response
+    const isPlaceholder = item.role === 'ai' && !displayText.trim() && !item.isComplete;
+
+    if (isPlaceholder) {
+      // Render typing indicator inside AI bubble
+      return (
+        <View style={[styles.messageRow, styles.aiRow]}>
+          <View style={styles.aiBubble}>
+            <TypingIndicator flavor="HUSH" color={activeTheme.colors.primary} />
+          </View>
+        </View>
+      );
+    }
+
     return <PrivacyMessage text={displayText} isUser={item.role === 'user'} />;
-  }, [streamingMessageId, streamingText]);
+  }, [streamingMessageId, streamingText, activeTheme.colors.primary]);
 
   return (
     // ROOT VIEW: Attach the hook handler here
@@ -681,14 +697,6 @@ Choose what you need right now.`;
                     </Animated.View>
                 </View>
 
-                {/* TYPING INDICATOR (P1.11 Phase 7) - Shows before streaming starts */}
-                {isTyping && !streamingMessageId && (
-                  <View style={{ marginLeft: 20, marginBottom: 10, backgroundColor: 'rgba(255,0,0,0.3)' }}>
-                    {__DEV__ && console.log('[HushScreen] Rendering typing indicator')}
-                    <TypingIndicator flavor="HUSH" color={activeTheme.colors.primary} />
-                  </View>
-                )}
-
                 {/* USAGE INDICATOR */}
                 <UsageIndicator
                   flavor="HUSH"
@@ -801,5 +809,21 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 60,
     left: 20,
+  },
+  messageRow: {
+    width: '100%',
+    flexDirection: 'row',
+    marginVertical: 4,
+    paddingHorizontal: 12,
+  },
+  aiRow: {
+    justifyContent: 'flex-start',
+  },
+  aiBubble: {
+    backgroundColor: '#262626',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    maxWidth: '85%',
   },
 });

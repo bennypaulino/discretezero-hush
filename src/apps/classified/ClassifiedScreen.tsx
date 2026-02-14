@@ -675,6 +675,22 @@ Type any protocol keyword to begin.`;
   const renderItem = useCallback(({ item }: { item: Message }) => {
     // STREAMING (P1.11 Phase 0): Use streaming text for messages being generated
     const displayText = item.id === streamingMessageId ? streamingText : item.text;
+
+    // TYPING INDICATOR (P1.11 Phase 7): Show typing animation for placeholder messages
+    const isPlaceholder = item.role === 'ai' && !displayText.trim() && !item.isComplete;
+
+    if (isPlaceholder) {
+      // Render typing indicator in terminal style matching RedactedMessage
+      return (
+        <View style={styles.typingRow}>
+          <Text style={[styles.typingPrompt, { color: theme.colors.accent }]}>
+            {'> SYS:'}
+          </Text>
+          <TypingIndicator flavor="CLASSIFIED" color={theme.colors.accent} />
+        </View>
+      );
+    }
+
     return (
       <RedactedMessage
         text={displayText}
@@ -911,14 +927,6 @@ Type any protocol keyword to begin.`;
             />
           </Animated.View>
 
-          {/* TYPING INDICATOR (P1.11 Phase 7) - Terminal spinner before streaming starts */}
-          {!isInIntro && isTyping && !streamingMessageId && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-              <Text style={{ color: TACTICAL_COLOR, fontFamily: 'Courier', fontWeight: 'bold', marginRight: 8 }}>{'>'}</Text>
-              <TypingIndicator flavor="CLASSIFIED" color={TACTICAL_COLOR} />
-            </View>
-          )}
-
           {/* Input bar - fades in during intro */}
           <Animated.View style={[styles.inputBar, { borderColor: TACTICAL_COLOR, opacity: contentOpacity }]}>
             <Text style={{ color: TACTICAL_COLOR, marginRight: 8, fontFamily: 'Courier', fontWeight: 'bold' }}>{'>'}</Text>
@@ -1042,5 +1050,19 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 60,
     left: 20,
+  },
+  typingRow: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    paddingRight: 10,
+    alignItems: 'flex-start',
+  },
+  typingPrompt: {
+    fontFamily: 'Courier',
+    fontWeight: 'bold',
+    marginRight: 12,
+    fontSize: 14,
+    minWidth: 50,
+    marginTop: 2,
   },
 });

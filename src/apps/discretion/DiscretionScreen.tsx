@@ -268,8 +268,13 @@ export const DiscretionScreen = () => {
     // STREAMING (P1.11 Phase 0): Use streaming text for messages being generated
     const displayText = item.id === streamingMessageId ? streamingText : item.text;
     const cleanContent = stripEmojis(displayText);
-    if (!cleanContent) return null;
     const isUser = item.role === 'user';
+
+    // TYPING INDICATOR (P1.11 Phase 7): Show typing animation for placeholder messages
+    const isPlaceholder = item.role === 'ai' && !cleanContent.trim() && !item.isComplete;
+
+    // Skip rendering empty user messages
+    if (isUser && !cleanContent) return null;
 
     return (
       <PrivacyBlock
@@ -285,6 +290,11 @@ export const DiscretionScreen = () => {
             <View style={[styles.userBubble, { backgroundColor: THEME.userBubble }]}>
               <Text style={styles.userText}>{cleanContent}</Text>
             </View>
+          ) : isPlaceholder ? (
+            <View style={styles.aiContainer}>
+              <View style={[styles.line, { backgroundColor: THEME.accent }]} />
+              <TypingIndicator flavor="DISCRETION" color={appTheme.colors.primary} />
+            </View>
           ) : (
             <View style={styles.aiContainer}>
               <View style={[styles.line, { backgroundColor: THEME.accent }]} />
@@ -298,7 +308,7 @@ export const DiscretionScreen = () => {
         </View>
       </PrivacyBlock>
     );
-  }, [privacyBlurEnabled, handleGlobalDoubleTap, THEME.userBubble, THEME.accent, streamingMessageId, streamingText]);
+  }, [privacyBlurEnabled, handleGlobalDoubleTap, THEME.userBubble, THEME.accent, streamingMessageId, streamingText, appTheme.colors.primary]);
 
   return (
     <View
@@ -367,13 +377,6 @@ export const DiscretionScreen = () => {
             initialNumToRender={15}
             updateCellsBatchingPeriod={50}
           />
-
-          {/* TYPING INDICATOR (P1.11 Phase 7) - Shows before streaming starts */}
-          {isTyping && !streamingMessageId && (
-            <View style={{ marginLeft: 20, marginBottom: 10 }}>
-              <TypingIndicator flavor="DISCRETION" color={appTheme.colors.primary} />
-            </View>
-          )}
 
           <PrivacyBlock isSecure={privacyBlurEnabled} onToggle={handleGlobalDoubleTap}>
               <View style={[styles.inputBar, { borderTopColor: THEME.surface, backgroundColor: THEME.bg }]}>
