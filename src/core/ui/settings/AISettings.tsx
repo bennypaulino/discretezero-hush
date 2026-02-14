@@ -698,7 +698,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
       />
       <ScrollView contentContainerStyle={styles.content}>
         {/* PRIVACY FIRST: Highlight local-only storage */}
-        <View style={[styles.memoryCard, { backgroundColor: theme.card, marginTop: 0, borderLeftWidth: 3, borderLeftColor: theme.accent }]}>
+        <View style={[styles.memoryCard, { backgroundColor: theme.card, marginTop: 0 }]}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
             <Ionicons
               name="shield-checkmark"
@@ -712,8 +712,8 @@ export const AISettings: React.FC<AISettingsProps> = ({
               </Text>
               <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 14, lineHeight: 20 }}>
                 {theme.isTerminal
-                  ? 'MESSAGES_ENCRYPTED_LOCALLY_NEVER_CLOUD_FULL_USER_CONTROL'
-                  : 'Messages encrypted on your device. Never sent to cloud. Clear history anytime or use Panic Wipe for instant deletion.'}
+                  ? 'MESSAGES_AES256_ENCRYPTED_LOCALLY_NEVER_CLOUD_FULL_USER_CONTROL'
+                  : 'Messages encrypted (AES-256) on your device. Never sent to cloud. Clear history anytime or use Panic Wipe for instant deletion.'}
               </Text>
             </View>
           </View>
@@ -778,13 +778,36 @@ export const AISettings: React.FC<AISettingsProps> = ({
 
               {/* Tier-specific messaging */}
               {subscriptionTier === 'FREE' ? (
-                <View style={{ marginTop: 12, padding: 10, backgroundColor: theme.bg, borderRadius: 8 }}>
-                  <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 13, lineHeight: 18 }}>
-                    {theme.isTerminal
-                      ? 'FREE_TIER_SLIDING_WINDOW_OLDER_MESSAGES_DISCARDED_UPGRADE_PRO_FOR_SUMMARIZATION'
-                      : '📌 Free tier: Older messages slide out of context. Upgrade to Pro for automatic summarization and extended memory.'}
-                  </Text>
-                </View>
+                <>
+                  <View style={{ marginTop: 12, padding: 10, backgroundColor: theme.bg, borderRadius: 8 }}>
+                    <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 13, lineHeight: 18 }}>
+                      {theme.isTerminal
+                        ? 'FREE_TIER_SLIDING_WINDOW_AI_FORGETS_OLD_MESSAGES_AS_NEW_ONES_ARRIVE'
+                        : 'AI forgets old messages as new ones come in (sliding window). Upgrade to Pro for extended memory.'}
+                    </Text>
+                  </View>
+                  {/* Paywall CTA for Free users */}
+                  <TouchableOpacity
+                    style={{
+                      marginTop: 12,
+                      padding: 12,
+                      backgroundColor: theme.accent,
+                      borderRadius: 8,
+                    }}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      triggerPaywall('feature_locked_response_style');
+                      onClose();
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="star" size={18} color="#FFFFFF" />
+                      <Text style={{ color: '#FFFFFF', fontFamily: theme.fontBody, fontSize: 14, fontWeight: '600', marginLeft: 8 }}>
+                        {theme.isTerminal ? 'UPGRADE_TO_PRO' : 'Upgrade to Pro'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                </>
               ) : (
                 <>
                   {usagePercent >= 80 ? (
@@ -883,8 +906,8 @@ export const AISettings: React.FC<AISettingsProps> = ({
             ]}
           >
             {subscriptionTier === 'FREE'
-              ? 'Free: AI remembers last 3 exchanges • Best for quick questions'
-              : 'Pro: Full context with smart compression • Best for quick questions'}
+              ? 'Free: Limited context (20% of window) • Best for quick questions'
+              : 'Pro: Extended context (80% of window) • Best for quick questions'}
           </Text>
         </View>
 
@@ -916,8 +939,8 @@ export const AISettings: React.FC<AISettingsProps> = ({
             ]}
           >
             {subscriptionTier === 'FREE'
-              ? 'Pro: AI remembers last 5 exchanges • Best for normal conversations'
-              : 'Pro: Extended context with summarization • Best for normal conversations'}
+              ? 'Pro-only: Extended context (80% of window) • Best for normal conversations'
+              : 'Pro: Extended context (80% of window) with summarization • Best for normal conversations'}
           </Text>
         </View>
 
@@ -949,8 +972,8 @@ export const AISettings: React.FC<AISettingsProps> = ({
             ]}
           >
             {subscriptionTier === 'FREE'
-              ? 'Pro: AI remembers last 5 exchanges • Best for long discussions'
-              : 'Pro: Maximum context with summarization • Best for long discussions'}
+              ? 'Pro-only: Extended context (80% of window) • Best for long discussions'
+              : 'Pro: Extended context (80% of window) with summarization • Best for long discussions'}
           </Text>
         </View>
 
@@ -970,11 +993,11 @@ export const AISettings: React.FC<AISettingsProps> = ({
             { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 12, lineHeight: 22 },
           ]}
         >
-          <Text style={{ fontWeight: '600' }}>Free tier:</Text> AI sees only your most recent exchanges (3-5 message pairs). This keeps the app fast and lightweight.
+          <Text style={{ fontWeight: '600' }}>Free tier:</Text> AI uses 20% of the context window for conversation history. Recent exchanges are prioritized; older messages slide out as new ones arrive (sliding window). This keeps the app fast and lightweight.
           {'\n\n'}
-          <Text style={{ fontWeight: '600' }}>Pro tier:</Text> AI can reference your full conversation. When context reaches 80% capacity, older messages are automatically summarized (not deleted) to maintain efficiency.
+          <Text style={{ fontWeight: '600' }}>Pro tier:</Text> AI uses 80% of the context window for conversation history (4x more than Free). When context reaches 80% capacity, older messages are automatically summarized (not deleted) to maintain efficiency.
           {'\n\n'}
-          <Text style={{ fontWeight: '600' }}>Your control:</Text> All messages stay encrypted on your device until you clear them. Use "Clear History" or Panic Wipe to instantly delete conversations.
+          <Text style={{ fontWeight: '600' }}>Your control:</Text> All messages are AES-256 encrypted on your device until you clear them. Use "Clear History" or Panic Wipe to securely delete conversations.
         </Text>
 
         <View
