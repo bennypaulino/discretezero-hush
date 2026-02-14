@@ -1014,6 +1014,16 @@ export async function syncDownloadedModels(): Promise<void> {
 export async function warmUpModel(): Promise<void> {
   try {
     const { activeMode } = useChatStore.getState();
+
+    // Check if model is downloaded before attempting warm-up
+    const isDownloaded = await isModelDownloaded(activeMode);
+    if (!isDownloaded) {
+      if (__DEV__) {
+        console.log(`[LocalAI] Model not downloaded yet (${activeMode}), skipping warm-up`);
+      }
+      return; // Skip warm-up on first launch - model will initialize when user sends first message
+    }
+
     await initializeModel(activeMode);
 
     // Run a quick dummy inference to warm up the model

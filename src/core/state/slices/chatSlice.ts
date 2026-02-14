@@ -685,7 +685,14 @@ Summary:`;
         });
       }
 
-      if (currentState.flavor === capturedFlavor && currentState.messages === capturedMessages) {
+      // Check if context is still valid (flavor unchanged AND placeholder message still exists)
+      // Check appropriate array based on decoy mode
+      const messagesArrayToCheck = state.isDecoyMode
+        ? (capturedFlavor === 'HUSH' ? currentState.customDecoyHushMessages : currentState.customDecoyClassifiedMessages)
+        : currentState.messages;
+      const placeholderStillExists = messagesArrayToCheck.some(m => m.id === streamingMessageId);
+
+      if (currentState.flavor === capturedFlavor && placeholderStillExists) {
         // Update placeholder message with final text and mark complete
         const finalMessage: Message = {
           ...placeholderMessage,

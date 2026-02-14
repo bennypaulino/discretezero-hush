@@ -869,7 +869,7 @@ Type any protocol keyword to begin.`;
             />
           </Animated.View>
 
-          {!isInIntro && isTyping && (
+          {!isInIntro && isTyping && !streamingMessageId && (
             <Text style={[styles.logText, { color: TACTICAL_COLOR, marginBottom: 10 }]}>
               {'>'} DECRYPTING INCOMING PACKET...
             </Text>
