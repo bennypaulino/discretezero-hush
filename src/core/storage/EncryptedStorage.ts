@@ -105,15 +105,19 @@ async function getMasterKey(): Promise<string> {
  * P0 Fix: Generate explicit random IV for each encryption operation
  * IV is prepended to ciphertext for retrieval during decryption
  *
+ * CRITICAL FIX: Changed to async to use expo-crypto for IV generation
+ * crypto-js WordArray.random() fails in React Native (no Node.js crypto module)
+ *
  * @param plaintext - Data to encrypt
  * @param key - Encryption key (base64)
  * @returns Encrypted data with IV prepended (base64)
  */
-function encrypt(plaintext: string, key: string): string {
+async function encrypt(plaintext: string, key: string): Promise<string> {
   try {
-    // P0 Fix: Generate explicit 16-byte IV using CryptoJS random
-    // (expo-crypto can't be used here as encrypt is synchronous)
-    const iv = CryptoJS.lib.WordArray.random(16);
+    // CRITICAL FIX: Use expo-crypto for IV generation (platform CSPRNG)
+    // crypto-js WordArray.random() fails in React Native
+    const ivBytes = await Crypto.getRandomBytesAsync(16);
+    const iv = CryptoJS.lib.WordArray.create(ivBytes as any);
 
     // Convert base64 key to WordArray
     const keyWordArray = CryptoJS.enc.Base64.parse(key);
@@ -254,7 +258,7 @@ export const EncryptedStorage = {
   async setItem(key: string, value: string): Promise<void> {
     try {
       const masterKey = await getMasterKey();
-      const encrypted = encrypt(value, masterKey);
+      const encrypted = await encrypt(value, masterKey);
 
       await AsyncStorage.setItem(key, encrypted);
     } catch (error) {

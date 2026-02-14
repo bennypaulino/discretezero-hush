@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/hush-icon-1024.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "splash": {
       "image": "./assets/hush-icon-1024.png",
       "resizeMode": "contain",
