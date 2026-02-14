@@ -18,6 +18,7 @@ import { PaywallModal } from '../../core/ui/PaywallModal';
 import { PostPurchaseCelebration } from '../../core/ui/PostPurchaseCelebration';
 import { RedactedMessage } from './components/RedactedMessage';
 import { renderClearAnimation } from '../../core/animations/AnimationRegistry';
+import { TypingIndicator } from '../../core/ui/TypingIndicator';
 import { LockScreen } from '../../core/security/LockScreen';
 import { GAME_TRIGGERS } from '../../core/engine/GameTriggers';
 import { ProWelcomeModal } from '../../core/ui/ProWelcomeModal';
@@ -27,6 +28,8 @@ import NetInfo from '@react-native-community/netinfo';
 import { shouldOfferBalanced } from '../../core/utils/deviceCapabilities';
 // STREAMING (P1.11 Phase 0): Keep screen awake during AI generation
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
+// TOKEN COUNTER (P1.11 Phase 6.5): Live token counter
+import { useTokenCounter } from '../../core/hooks/useTokenCounter';
 
 // Typewriter configs
 const TITLE = 'CLASSIFIED';
@@ -147,6 +150,15 @@ export const ClassifiedScreen = ({
 
   // Get messages to display based on decoy mode
   const displayMessages = useFilteredMessages('CLASSIFIED');
+
+  // --- TOKEN COUNTER (P1.11 Phase 6.5) ---
+  // TOKEN COUNTER (P1.11 Phase 6.5): Live token counter with blocking
+  const tokenCountInfo = useTokenCounter({
+    input,
+    subscriptionTier,
+    subtextColor: theme.colors.subtext,
+    isInputEditable: isPro, // Classified: Only Pro users can type
+  });
 
   // --- AUTO-SCROLL ON NEW MESSAGES ---
   // Scroll to bottom when messages change (e.g., AI responds)
@@ -633,6 +645,22 @@ Type any protocol keyword to begin.`;
   const renderItem = useCallback(({ item }: { item: Message }) => {
     // STREAMING (P1.11 Phase 0): Use streaming text for messages being generated
     const displayText = item.id === streamingMessageId ? streamingText : item.text;
+
+    // TYPING INDICATOR (P1.11 Phase 7): Show typing animation for placeholder messages
+    const isPlaceholder = item.role === 'ai' && !displayText.trim() && !item.isComplete;
+
+    if (isPlaceholder) {
+      // Render typing indicator in terminal style matching RedactedMessage
+      return (
+        <View style={styles.typingRow}>
+          <Text style={[styles.typingPrompt, { color: theme.colors.accent }]}>
+            {'> SYS:'}
+          </Text>
+          <TypingIndicator flavor="CLASSIFIED" color={theme.colors.accent} />
+        </View>
+      );
+    }
+
     return (
       <RedactedMessage
         text={displayText}
@@ -869,39 +897,42 @@ Type any protocol keyword to begin.`;
             />
           </Animated.View>
 
-          {!isInIntro && isTyping && !streamingMessageId && (
-            <Text style={[styles.logText, { color: TACTICAL_COLOR, marginBottom: 10 }]}>
-              {'>'} DECRYPTING INCOMING PACKET...
-            </Text>
-          )}
-
           {/* Input bar - fades in during intro */}
           <Animated.View style={[styles.inputBar, { borderColor: TACTICAL_COLOR, opacity: contentOpacity }]}>
             <Text style={{ color: TACTICAL_COLOR, marginRight: 8, fontFamily: 'Courier', fontWeight: 'bold' }}>{'>'}</Text>
-            <TextInput
-              style={[styles.input, { color: TACTICAL_COLOR }]}
-              placeholder={!isPro ? "CLEARANCE REQUIRED" : "ENTER COMMAND..."}
-              placeholderTextColor={theme.colors.subtext}
-              value={input}
-              onChangeText={setInput}
-              onSubmitEditing={handleSend}
-              autoCapitalize="none"
-              keyboardAppearance="dark"
-              editable={!isInIntro && isPro}
-              multiline
-              textAlignVertical="center"
-              accessibilityLabel="Command input"
-              accessibilityHint={isPro ? "Enter tactical commands or communications" : "Pro access required"}
-            />
+            <View style={{ flex: 1 }}>
+              <TextInput
+                style={[styles.input, { color: TACTICAL_COLOR }]}
+                placeholder={!isPro ? "CLEARANCE REQUIRED" : "ENTER COMMAND..."}
+                placeholderTextColor={theme.colors.subtext}
+                value={input}
+                onChangeText={setInput}
+                onSubmitEditing={handleSend}
+                autoCapitalize="none"
+                keyboardAppearance="dark"
+                editable={!isInIntro && isPro}
+                multiline
+                textAlignVertical="center"
+                accessibilityLabel="Command input"
+                accessibilityHint={isPro ? "Enter tactical commands or communications" : "Pro access required"}
+              />
+              {/* TOKEN COUNTER (P1.11 Phase 6.5) */}
+              {tokenCountInfo.show && (
+                <Text style={[styles.tokenCounter, { color: tokenCountInfo.color }]}>
+                  {tokenCountInfo.text}
+                </Text>
+              )}
+            </View>
             <TouchableOpacity
               onPress={handleSend}
-              disabled={isInIntro || !isPro}
+              disabled={isInIntro || !isPro || tokenCountInfo.isBlocking}
               accessibilityLabel="Execute command"
               accessibilityRole="button"
+              accessibilityHint={tokenCountInfo.isBlocking ? 'Message exceeds token limit' : undefined}
             >
               <Text style={[styles.sendBtn, {
-                backgroundColor: !isPro ? 'rgba(255, 0, 0, 0.3)' : TACTICAL_COLOR,
-                color: !isPro ? 'rgba(255, 255, 255, 0.3)' : '#000'
+                backgroundColor: (!isPro || tokenCountInfo.isBlocking) ? 'rgba(255, 0, 0, 0.3)' : TACTICAL_COLOR,
+                color: (!isPro || tokenCountInfo.isBlocking) ? 'rgba(255, 255, 255, 0.3)' : '#000'
               }]}>EXEC</Text>
             </TouchableOpacity>
           </Animated.View>
@@ -950,6 +981,7 @@ const styles = StyleSheet.create({
   logText: { fontFamily: 'Courier', fontSize: 14, lineHeight: 20, flex: 1 },
   inputBar: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, paddingTop: 16, paddingBottom: 16, minHeight: 70 },
   input: { flex: 1, fontFamily: 'Courier', fontSize: 16, minHeight: 40, maxHeight: 120, paddingTop: 10, paddingBottom: 10 },
+  tokenCounter: { fontFamily: 'Courier', fontSize: 11, textAlign: 'right', marginTop: 4, marginRight: 8 },
   sendBtn: { fontFamily: 'Courier', fontWeight: 'bold', paddingHorizontal: 12, paddingVertical: 6, fontSize: 12 },
   noModelTitle: {
     fontFamily: 'Courier',
@@ -989,5 +1021,19 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 60,
     left: 20,
+  },
+  typingRow: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    paddingRight: 10,
+    alignItems: 'flex-start',
+  },
+  typingPrompt: {
+    fontFamily: 'Courier',
+    fontWeight: 'bold',
+    marginRight: 12,
+    fontSize: 14,
+    minWidth: 50,
+    marginTop: 2,
   },
 });

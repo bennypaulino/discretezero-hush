@@ -13,6 +13,7 @@ import { useFilteredMessages } from '../../core/hooks/useFilteredMessages';
 import { useAnimatedValue } from '../../core/hooks/useAnimatedValue';
 import { PrivacyMessage } from './components/PrivacyMessage';
 import { SettingsModal } from '../../core/ui/SettingsModal';
+import { TypingIndicator } from '../../core/ui/TypingIndicator';
 import { BadgeUnlockModal } from '../../core/ui/BadgeUnlockModal';
 import { ModelDownloadErrorModal } from '../../core/ui/ModelDownloadErrorModal';
 import { UsageIndicator } from '../../core/ui/UsageIndicator';
@@ -33,6 +34,8 @@ import NetInfo from '@react-native-community/netinfo';
 import { shouldOfferBalanced } from '../../core/utils/deviceCapabilities';
 // STREAMING (P1.11 Phase 0): Keep screen awake during AI generation
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
+// TOKEN COUNTER (P1.11 Phase 6.5): Live token counter
+import { useTokenCounter } from '../../core/hooks/useTokenCounter';
 
 
 export const HushScreen = () => {
@@ -191,6 +194,15 @@ export const HushScreen = () => {
 
   // Get messages to display based on decoy mode
   const displayMessages = useFilteredMessages('HUSH');
+
+  // --- TOKEN COUNTER (P1.11 Phase 6.5) ---
+  // TOKEN COUNTER (P1.11 Phase 6.5): Live token counter with blocking
+  const tokenCountInfo = useTokenCounter({
+    input,
+    subscriptionTier,
+    subtextColor: activeTheme.colors.subtext,
+    isInputEditable: true, // Hush: Always editable
+  });
 
   // --- AUTOMATIC PAYWALL LISTENER ---
   // PaywallModal now renders independently based on showPaywall state
@@ -486,8 +498,24 @@ Choose what you need right now.`;
   const renderItem = useCallback(({ item }: { item: Message }) => {
     // STREAMING (P1.11 Phase 0): Use streaming text for messages being generated
     const displayText = item.id === streamingMessageId ? streamingText : item.text;
+
+    // TYPING INDICATOR (P1.11 Phase 7): Show typing animation for placeholder messages
+    // Placeholder messages have empty text and are waiting for AI response
+    const isPlaceholder = item.role === 'ai' && !displayText.trim() && !item.isComplete;
+
+    if (isPlaceholder) {
+      // Render typing indicator inside AI bubble
+      return (
+        <View style={[styles.messageRow, styles.aiRow]}>
+          <View style={styles.aiBubble}>
+            <TypingIndicator flavor="HUSH" color={activeTheme.colors.primary} />
+          </View>
+        </View>
+      );
+    }
+
     return <PrivacyMessage text={displayText} isUser={item.role === 'user'} />;
-  }, [streamingMessageId, streamingText]);
+  }, [streamingMessageId, streamingText, activeTheme.colors.primary]);
 
   return (
     // ROOT VIEW: Attach the hook handler here
@@ -639,8 +667,6 @@ Choose what you need right now.`;
                     </Animated.View>
                 </View>
 
-                {isTyping && <Text style={{ color: '#666', marginLeft: 20, marginBottom: 10 }}>Hush is thinking...</Text>}
-
                 {/* USAGE INDICATOR */}
                 <UsageIndicator
                   flavor="HUSH"
@@ -652,25 +678,41 @@ Choose what you need right now.`;
 
                 {/* INPUT */}
                 <View style={styles.inputContainer}>
-                    <TextInput
-                        style={[styles.input, { color: activeTheme.colors.primary, borderColor: activeTheme.colors.primary }]}
-                        placeholder="Whisper something..."
-                        placeholderTextColor={activeTheme.colors.subtext}
-                        value={input}
-                        onChangeText={setInput}
-                        onSubmitEditing={handleSend}
-                        keyboardAppearance="dark"
-                        multiline
-                        textAlignVertical="center"
-                        accessibilityLabel="Message input"
-                        accessibilityHint="Type your message here"
-                    />
+                    <View style={{ flex: 1 }}>
+                        <TextInput
+                            style={[styles.input, { color: activeTheme.colors.primary, borderColor: activeTheme.colors.primary }]}
+                            placeholder="Whisper something..."
+                            placeholderTextColor={activeTheme.colors.subtext}
+                            value={input}
+                            onChangeText={setInput}
+                            onSubmitEditing={handleSend}
+                            keyboardAppearance="dark"
+                            multiline
+                            textAlignVertical="center"
+                            accessibilityLabel="Message input"
+                            accessibilityHint="Type your message here"
+                        />
+                        {/* TOKEN COUNTER (P1.11 Phase 6.5) */}
+                        {tokenCountInfo.show && (
+                            <Text style={[styles.tokenCounter, { color: tokenCountInfo.color }]}>
+                                {tokenCountInfo.text}
+                            </Text>
+                        )}
+                    </View>
                     <TouchableOpacity
                         onPress={handleSend}
+                        disabled={tokenCountInfo.isBlocking}
                         accessibilityLabel="Send message"
                         accessibilityRole="button"
+                        accessibilityHint={tokenCountInfo.isBlocking ? 'Message exceeds token limit' : undefined}
                     >
-                        <Text style={{ color: activeTheme.colors.primary, fontWeight: 'bold' }}>Send</Text>
+                        <Text style={{
+                            color: tokenCountInfo.isBlocking ? '#666' : activeTheme.colors.primary,
+                            fontWeight: 'bold',
+                            opacity: tokenCountInfo.isBlocking ? 0.5 : 1,
+                        }}>
+                            Send
+                        </Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -712,6 +754,7 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 10, fontWeight: '700' },
   inputContainer: { flexDirection: 'row', padding: 20, alignItems: 'center', gap: 10 },
   input: { flex: 1, minHeight: 50, maxHeight: 120, borderRadius: 25, borderWidth: 1, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 14 },
+  tokenCounter: { fontSize: 12, textAlign: 'right', marginTop: 4, marginRight: 20 },
   noModelTitle: {
     fontSize: 24,
     fontWeight: '600',
@@ -744,5 +787,21 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 60,
     left: 20,
+  },
+  messageRow: {
+    width: '100%',
+    flexDirection: 'row',
+    marginVertical: 4,
+    paddingHorizontal: 12,
+  },
+  aiRow: {
+    justifyContent: 'flex-start',
+  },
+  aiBubble: {
+    backgroundColor: '#262626',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    maxWidth: '85%',
   },
 });
