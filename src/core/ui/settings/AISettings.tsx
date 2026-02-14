@@ -691,7 +691,29 @@ export const AISettings: React.FC<AISettingsProps> = ({
         theme={theme}
       />
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={[styles.sectionTitle, { color: theme.text, fontFamily: theme.fontBody }]}>
+        {/* PRIVACY FIRST: Highlight local-only storage */}
+        <View style={[styles.memoryCard, { backgroundColor: theme.card, marginTop: 0, borderLeftWidth: 3, borderLeftColor: theme.accent }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+            <Ionicons
+              name="shield-checkmark"
+              size={20}
+              color={theme.accent}
+              style={{ marginRight: 10, marginTop: 2 }}
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: theme.text, fontFamily: theme.fontBody, fontWeight: '600', marginBottom: 4 }}>
+                {theme.isTerminal ? 'PRIVACY_FIRST' : 'Privacy First'}
+              </Text>
+              <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 14, lineHeight: 20 }}>
+                {theme.isTerminal
+                  ? 'MESSAGES_ENCRYPTED_LOCALLY_NEVER_CLOUD_FULL_USER_CONTROL'
+                  : 'Messages encrypted on your device. Never sent to cloud. Clear history anytime or use Panic Wipe for instant deletion.'}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <Text style={[styles.sectionTitle, { color: theme.text, fontFamily: theme.fontBody, marginTop: 24 }]}>
           {theme.isTerminal ? 'HOW_AI_MEMORY_WORKS' : 'How AI Memory Works'}
         </Text>
 
@@ -714,7 +736,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
               { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 4 },
             ]}
           >
-            Context: ~8K tokens
+            Context: 8K tokens
           </Text>
           <Text
             style={[
@@ -722,7 +744,9 @@ export const AISettings: React.FC<AISettingsProps> = ({
               { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 4 },
             ]}
           >
-            Best for quick questions
+            {subscriptionTier === 'FREE'
+              ? 'Free: AI remembers last 3 exchanges • Best for quick questions'
+              : 'Pro: Full context with smart compression • Best for quick questions'}
           </Text>
         </View>
 
@@ -736,7 +760,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
                 { color: theme.text, fontFamily: theme.fontBody, marginLeft: 8 },
               ]}
             >
-              Balanced Mode
+              Balanced Mode {subscriptionTier === 'FREE' && '(Pro)'}
             </Text>
           </View>
           <Text
@@ -753,7 +777,9 @@ export const AISettings: React.FC<AISettingsProps> = ({
               { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 4 },
             ]}
           >
-            Best for normal conversations
+            {subscriptionTier === 'FREE'
+              ? 'Pro: AI remembers last 5 exchanges • Best for normal conversations'
+              : 'Pro: Extended context with summarization • Best for normal conversations'}
           </Text>
         </View>
 
@@ -784,7 +810,9 @@ export const AISettings: React.FC<AISettingsProps> = ({
               { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 4 },
             ]}
           >
-            Best for long discussions
+            {subscriptionTier === 'FREE'
+              ? 'Pro: AI remembers last 5 exchanges • Best for long discussions'
+              : 'Pro: Maximum context with summarization • Best for long discussions'}
           </Text>
         </View>
 
@@ -796,7 +824,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
             { color: theme.text, fontFamily: theme.fontBody, fontSize: 16, fontWeight: '600' },
           ]}
         >
-          {theme.isTerminal ? 'WHAT_THIS_MEANS' : 'What This Means'}
+          {theme.isTerminal ? 'MEMORY_EXPLAINED' : 'Memory Explained'}
         </Text>
         <Text
           style={[
@@ -804,11 +832,11 @@ export const AISettings: React.FC<AISettingsProps> = ({
             { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 12, lineHeight: 22 },
           ]}
         >
-          When conversations get longer than the mode's memory capacity, older messages are archived
-          automatically.
+          <Text style={{ fontWeight: '600' }}>Free tier:</Text> AI sees only your most recent exchanges (3-5 message pairs). This keeps the app fast and lightweight.
           {'\n\n'}
-          Your chat history is always saved, but the AI won't reference very old messages in its
-          responses.
+          <Text style={{ fontWeight: '600' }}>Pro tier:</Text> AI can reference your full conversation. When context reaches 80% capacity, older messages are automatically summarized (not deleted) to maintain efficiency.
+          {'\n\n'}
+          <Text style={{ fontWeight: '600' }}>Your control:</Text> All messages stay encrypted on your device until you clear them. Use "Clear History" or Panic Wipe to instantly delete conversations.
         </Text>
 
         <View
@@ -821,7 +849,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
         >
           <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
             <Ionicons
-              name="bulb"
+              name="information-circle"
               size={20}
               color={theme.accent}
               style={{ marginRight: 10, marginTop: 2 }}
@@ -832,11 +860,13 @@ export const AISettings: React.FC<AISettingsProps> = ({
                 fontFamily: theme.fontBody,
                 flex: 1,
                 lineHeight: 20,
+                fontSize: 14,
               }}
             >
-              <Text style={{ fontWeight: '600' }}>Tip: </Text>
-              For long conversations with lots of back-and-forth, use Balanced or Quality mode for better
-              context.
+              <Text style={{ fontWeight: '600' }}>Note: </Text>
+              {theme.isTerminal
+                ? 'CONTEXT_WINDOW_IS_MODEL_LIMIT_NOT_DEVICE_LIMIT'
+                : 'Context window size is determined by the AI model architecture, not your device capabilities.'}
             </Text>
           </View>
         </View>

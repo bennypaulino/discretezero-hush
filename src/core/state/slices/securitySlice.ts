@@ -140,9 +140,10 @@ export const createSecuritySlice: StateCreator<
   setDecoyMode: (isDecoy) =>
     set({
       isDecoyMode: isDecoy,
-      // Reset decoyBurned when exiting decoy mode (entering real passcode)
-      // This ensures next duress entry shows preset messages, not empty screen
-      decoyBurned: isDecoy ? get().decoyBurned : false,
+      // FIXED: Always reset decoyBurned to allow preset messages to display
+      // Each unlock session (real or duress) starts fresh with preset messages available
+      // clearHistory() within a session can still burn messages to show blank screen
+      decoyBurned: false,
     }),
   setHushDecoyPreset: (preset) => set({ hushDecoyPreset: preset }),
   setClassifiedDecoyPreset: (preset) => set({ classifiedDecoyPreset: preset }),

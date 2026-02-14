@@ -1064,7 +1064,13 @@ export const useChatStore = create<ChatState>()(
                 ? state.responseStyleDiscretion
                 : undefined;
 
-          const response = await generateResponse(text, state.flavor, responseStyle);
+          const response = await generateResponse(
+            text,
+            state.flavor,
+            [], // No conversation history (store.ts deprecated - chatSlice handles this)
+            null, // No summary
+            responseStyle
+          );
           state.addMessage(response, 'ai');
         } catch (e) {
           state.addMessage('Error: Connection lost.', 'system');
@@ -1224,46 +1230,59 @@ export const useChatStore = create<ChatState>()(
           };
         });
 
-        // Check for badge unlocks after state update
+        // CRITICAL FIX: Check for badge unlocks and update in SAME set() call
+        // Previously, calling get().unlockBadge() created nested state updates that didn't persist
+        // Now we unlock badges directly in the same state update as endGame
         if (completed) {
           const updatedState = get();
           const finalProgress = updatedState.gameState.gameProgress[activeGameId];
           const sessionData = gameState.currentSession.sessionData; // Capture sessionData before state update clears it
           const subscriptionTier = get().subscriptionTier;
+          const currentBadges = updatedState.gameState.badges;
 
           if (__DEV__) {
             console.log('[endGame] Checking badge unlocks for', activeGameId, 'timesCompleted:', finalProgress.timesCompleted);
           }
 
+          // Collect badges to unlock
+          const badgesToUnlock: BadgeId[] = [];
+
           // Check game-specific completion badges
           if (activeGameId === 'breathe' && finalProgress.timesCompleted >= 10) {
-            if (__DEV__) console.log('[endGame] Unlocking centered badge');
-            get().unlockBadge('centered');
+            if (__DEV__) console.log('[endGame] ✅ Centered badge earned (Breathe 10/10)');
+            badgesToUnlock.push('centered');
           } else if (activeGameId === 'unburdening') {
+            if (__DEV__) {
+              console.log('[endGame] 🎮 Unburdening completed! timesCompleted:', finalProgress.timesCompleted);
+              console.log('[endGame] Checking badge unlock conditions...');
+            }
             if (finalProgress.timesCompleted >= 1) {
-              if (__DEV__) console.log('[endGame] Unlocking released badge');
-              get().unlockBadge('released');
+              if (__DEV__) console.log('[endGame] ✅ Released badge earned (Unburdening 1/1)');
+              badgesToUnlock.push('released');
             }
             if (finalProgress.timesCompleted >= 5) {
-              if (__DEV__) console.log('[endGame] Unlocking unburdened badge');
-              get().unlockBadge('unburdened');
+              if (__DEV__) console.log('[endGame] ✅ Unburdened badge earned (Unburdening 5/5)');
+              badgesToUnlock.push('unburdened');
             }
           } else if (activeGameId === 'zero_day' && finalProgress.timesCompleted >= 3) {
-            if (__DEV__) console.log('[endGame] Unlocking white_hat badge (Zero Day completed', finalProgress.timesCompleted, 'times)');
-            get().unlockBadge('white_hat');
+            if (__DEV__) console.log('[endGame] ✅ White Hat badge earned (Zero Day 3/3)');
+            badgesToUnlock.push('white_hat');
           } else if (activeGameId === 'defcon') {
             // DEFCON: Strategist badge requires campaign victory (Pro only, Diamond tier)
             const campaign = sessionData.defconCampaign;
             if (campaign?.completed && campaign.outcome === 'victory' && subscriptionTier !== 'FREE') {
-              if (__DEV__) console.log('[endGame] Unlocking strategist badge (DEFCON victory)');
-              get().unlockBadge('strategist');
+              if (__DEV__) console.log('[endGame] ✅ Strategist badge earned (DEFCON victory)');
+              badgesToUnlock.push('strategist');
             }
           } else if (activeGameId === 'crisis_management' && score !== undefined && score >= 90) {
-            get().unlockBadge('steady_hand');
+            if (__DEV__) console.log('[endGame] ✅ Steady Hand badge earned (Crisis 90%+)');
+            badgesToUnlock.push('steady_hand');
           } else if (activeGameId === 'negotiation' && finalProgress.timesCompleted >= 10) {
-            get().unlockBadge('closer');
+            if (__DEV__) console.log('[endGame] ✅ Closer badge earned (Negotiation 10/10)');
+            badgesToUnlock.push('closer');
           } else if (activeGameId === 'executive_decision' && finalProgress.timesCompleted >= 10) {
-            get().unlockBadge('decisive');
+            if (__DEV__) console.log('[endGame] ✅ Decisive badge earned (Executive 10/10)');
+            badgesToUnlock.push('decisive');
           }
 
           // Check for Breach Protocol security certified badge (all 5 layers)
@@ -1272,8 +1291,46 @@ export const useChatStore = create<ChatState>()(
             const skippedLayers = finalProgress.skippedLayers || [];
             // Badge requires all 5 layers completed with 0 skips
             if (completedLayers.length >= 5 && skippedLayers.length === 0) {
-              get().unlockBadge('security_certified');
+              if (__DEV__) console.log('[endGame] ✅ Security Certified badge earned (Breach 5/5, no skips)');
+              badgesToUnlock.push('security_certified');
             }
+          }
+
+          // Unlock badges in a single state update
+          if (badgesToUnlock.length > 0) {
+            const updatedBadges = { ...currentBadges };
+            let newlyUnlocked: BadgeId | null = null;
+
+            for (const badgeId of badgesToUnlock) {
+              // Skip if already unlocked
+              if (updatedBadges[badgeId]?.unlockedAt !== null) {
+                if (__DEV__) console.log('[endGame] Badge', badgeId, 'already unlocked, skipping');
+                continue;
+              }
+
+              // Unlock badge
+              updatedBadges[badgeId] = {
+                ...updatedBadges[badgeId],
+                unlockedAt: Date.now(),
+              };
+
+              // Set first unlocked badge as newly unlocked (for modal)
+              if (!newlyUnlocked) {
+                newlyUnlocked = badgeId;
+                if (__DEV__) console.log('[endGame] 🏆 Setting newlyUnlockedBadge to', badgeId);
+              }
+            }
+
+            // Update state with unlocked badges
+            set((state) => ({
+              gameState: {
+                ...state.gameState,
+                badges: updatedBadges,
+                newlyUnlockedBadge: newlyUnlocked,
+              },
+            }));
+
+            if (__DEV__) console.log('[endGame] ✅ Badges unlocked in single state update');
           }
         }
       },
@@ -1288,15 +1345,17 @@ export const useChatStore = create<ChatState>()(
       },
 
       unlockBadge: (badgeId) => {
-        if (__DEV__) console.log('[unlockBadge] Attempting to unlock badge:', badgeId);
+        if (__DEV__) console.log('[unlockBadge] 🏆 Attempting to unlock badge:', badgeId);
         set((state) => {
           // Safety check: if badge doesn't exist in persisted state, it needs to be created
           const badgeExists = state.gameState.badges[badgeId] !== undefined;
+          if (__DEV__) console.log('[unlockBadge] Badge exists in state:', badgeExists);
 
           // Don't unlock if already unlocked
           if (badgeExists && state.gameState.badges[badgeId].unlockedAt !== null) {
             if (__DEV__) {
-              console.log('[unlockBadge] Badge', badgeId, 'already unlocked at', new Date(state.gameState.badges[badgeId].unlockedAt!).toISOString());
+              console.log('[unlockBadge] ❌ Badge', badgeId, 'already unlocked at', new Date(state.gameState.badges[badgeId].unlockedAt!).toISOString());
+              console.log('[unlockBadge] Skipping unlock (already unlocked)');
             }
             return state;
           }

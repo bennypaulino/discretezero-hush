@@ -20,9 +20,14 @@ import { useAutoScroll } from '../../core/hooks/useAutoScroll';
 import { useFilteredMessages } from '../../core/hooks/useFilteredMessages';
 import { Typewriter } from '../../core/ui/Typewriter';
 import { SettingsModal } from '../../core/ui/SettingsModal';
+import { TypingIndicator } from '../../core/ui/TypingIndicator';
 import { BlurView } from 'expo-blur';
 import { useDoubleTap } from '../../core/hooks/useDoubleTap';
 import { LockScreen } from '../../core/security/LockScreen';
+// STREAMING (P1.11 Phase 0): Keep screen awake during AI generation
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
+// TOKEN COUNTER (P1.11 Phase 6.5): Live token counter
+import { useTokenCounter } from '../../core/hooks/useTokenCounter';
 
 const stripEmojis = (str: string) => str.replace(/[^\x00-\x7F]/g, "").trim();
 
@@ -88,7 +93,11 @@ export const DiscretionScreen = () => {
       clearHistory,
       toggleFlavor,
       togglePrivacyBlur,
-      privacyBlurEnabled
+      privacyBlurEnabled,
+      subscriptionTier,
+      // STREAMING STATE (P1.11 Phase 0)
+      streamingMessageId,
+      streamingText,
   } = useChatStore();
 
   const modeDownloadState = useChatStore((state) => state.modeDownloadState);
@@ -111,11 +120,36 @@ export const DiscretionScreen = () => {
   // This prevents Hush/Classified messages from "bleeding" into this screen.
   const displayMessages = useFilteredMessages('DISCRETION');
 
+  // --- TOKEN COUNTER (P1.11 Phase 6.5) ---
+  // TOKEN COUNTER (P1.11 Phase 6.5): Live token counter with blocking
+  const tokenCountInfo = useTokenCounter({
+    input,
+    subscriptionTier,
+    subtextColor: appTheme.colors.subtext,
+    isInputEditable: true, // Discretion: Always editable
+  });
+
   // --- AUTO-SCROLL ON NEW MESSAGES ---
   // Scroll to bottom when messages change (e.g., AI responds)
   useAutoScroll(flatListRef, displayMessages.length);
 
   const handleGlobalDoubleTap = useDoubleTap();
+
+  // STREAMING (P1.11 Phase 0): Keep screen awake during AI generation
+  useEffect(() => {
+    if (isTyping || streamingMessageId) {
+      // Keep screen awake while generating response
+      activateKeepAwakeAsync('ai-generation');
+    } else {
+      // Deactivate when done
+      deactivateKeepAwake('ai-generation');
+    }
+
+    // Cleanup on unmount
+    return () => {
+      deactivateKeepAwake('ai-generation');
+    };
+  }, [isTyping, streamingMessageId]);
 
   // Check if AI model is downloaded
   const modelDownloaded = modeDownloadState.efficient === 'downloaded';
@@ -201,9 +235,16 @@ export const DiscretionScreen = () => {
   }), []);
 
   const renderItem = useCallback(({ item }: { item: any }) => {
-    const cleanContent = stripEmojis(item.text);
-    if (!cleanContent) return null;
+    // STREAMING (P1.11 Phase 0): Use streaming text for messages being generated
+    const displayText = item.id === streamingMessageId ? streamingText : item.text;
+    const cleanContent = stripEmojis(displayText);
     const isUser = item.role === 'user';
+
+    // TYPING INDICATOR (P1.11 Phase 7): Show typing animation for placeholder messages
+    const isPlaceholder = item.role === 'ai' && !cleanContent.trim() && !item.isComplete;
+
+    // Skip rendering empty user messages
+    if (isUser && !cleanContent) return null;
 
     return (
       <PrivacyBlock
@@ -219,6 +260,11 @@ export const DiscretionScreen = () => {
             <View style={[styles.userBubble, { backgroundColor: THEME.userBubble }]}>
               <Text style={styles.userText}>{cleanContent}</Text>
             </View>
+          ) : isPlaceholder ? (
+            <View style={styles.aiContainer}>
+              <View style={[styles.line, { backgroundColor: THEME.accent }]} />
+              <TypingIndicator flavor="DISCRETION" color={appTheme.colors.primary} />
+            </View>
           ) : (
             <View style={styles.aiContainer}>
               <View style={[styles.line, { backgroundColor: THEME.accent }]} />
@@ -232,7 +278,7 @@ export const DiscretionScreen = () => {
         </View>
       </PrivacyBlock>
     );
-  }, [privacyBlurEnabled, handleGlobalDoubleTap, THEME.userBubble, THEME.accent]);
+  }, [privacyBlurEnabled, handleGlobalDoubleTap, THEME.userBubble, THEME.accent, streamingMessageId, streamingText, appTheme.colors.primary]);
 
   return (
     <View
@@ -302,30 +348,41 @@ export const DiscretionScreen = () => {
             updateCellsBatchingPeriod={50}
           />
 
-          {isTyping && <Text style={styles.status}>Processing...</Text>}
-
           <PrivacyBlock isSecure={privacyBlurEnabled} onToggle={handleGlobalDoubleTap}>
               <View style={[styles.inputBar, { borderTopColor: THEME.surface, backgroundColor: THEME.bg }]}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Dictate inquiry..."
-                  placeholderTextColor={appTheme.colors.subtext}
-                  value={input}
-                  onChangeText={setInput}
-                  selectionColor={THEME.accent}
-                  onSubmitEditing={handleSend}
-                  multiline
-                  textAlignVertical="center"
-                  accessibilityLabel="Inquiry input"
-                  accessibilityHint="Compose your confidential message"
-                />
+                <View style={{ flex: 1 }}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Dictate inquiry..."
+                    placeholderTextColor={appTheme.colors.subtext}
+                    value={input}
+                    onChangeText={setInput}
+                    selectionColor={THEME.accent}
+                    onSubmitEditing={handleSend}
+                    multiline
+                    textAlignVertical="center"
+                    accessibilityLabel="Inquiry input"
+                    accessibilityHint="Compose your confidential message"
+                  />
+                  {/* TOKEN COUNTER (P1.11 Phase 6.5) */}
+                  {tokenCountInfo.show && (
+                    <Text style={[styles.tokenCounter, { color: tokenCountInfo.color }]}>
+                      {tokenCountInfo.text}
+                    </Text>
+                  )}
+                </View>
                 <TouchableOpacity
                   onPress={handleSend}
+                  disabled={tokenCountInfo.isBlocking}
                   style={styles.sendBtn}
                   accessibilityLabel="Send inquiry"
                   accessibilityRole="button"
+                  accessibilityHint={tokenCountInfo.isBlocking ? 'Message exceeds token limit' : undefined}
                 >
-                   <View style={[styles.sendIcon, { backgroundColor: THEME.accent }]} />
+                   <View style={[styles.sendIcon, {
+                     backgroundColor: tokenCountInfo.isBlocking ? '#666' : THEME.accent,
+                     opacity: tokenCountInfo.isBlocking ? 0.5 : 1,
+                   }]} />
                 </TouchableOpacity>
               </View>
           </PrivacyBlock>
@@ -351,6 +408,7 @@ const styles = StyleSheet.create({
   status: { marginLeft: 24, marginBottom: 10, color: '#444', fontSize: 10, letterSpacing: 1, textTransform: 'uppercase' },
   inputBar: { borderTopWidth: 1, padding: 20, flexDirection: 'row', alignItems: 'center', minHeight: 80 },
   input: { flex: 1, color: '#FFF', fontSize: 16, minHeight: 40, maxHeight: 120, paddingTop: 10, paddingBottom: 10 },
+  tokenCounter: { fontSize: 12, textAlign: 'right', marginTop: 4, marginRight: 8 },
   sendBtn: { padding: 10 },
   sendIcon: { width: 6, height: 6, borderRadius: 0 },
   noModelTitle: {

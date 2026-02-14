@@ -9,8 +9,12 @@ import * as Notifications from 'expo-notifications';
 import { AppState, type NativeEventSubscription } from 'react-native';
 import { PERSONALITIES } from './GroqAI';
 import type { AppFlavor } from '../../config';
-import type { ResponseStyleHush, ResponseStyleClassified, ResponseStyleDiscretion, PerformanceMode } from '../state/rootStore';
+import type { ResponseStyleHush, ResponseStyleClassified, ResponseStyleDiscretion, PerformanceMode, Message } from '../state/rootStore';
 import { useChatStore } from '../state/rootStore';
+import { estimateTokens } from '../utils/tokenCounter';
+import { getModelProfile } from './modelProfiles';
+import { getDeviceProfile } from '../utils/deviceCapabilities';
+import { calculateContextBudgets } from '../utils/contextBudgetCalculator';
 
 // Model configurations
 interface ModelConfig {
@@ -616,7 +620,10 @@ export async function deleteModel(mode: PerformanceMode): Promise<void> {
 export async function generateResponse(
   prompt: string,
   context: AppFlavor = 'HUSH',
-  responseStyle?: ResponseStyleHush | ResponseStyleClassified | ResponseStyleDiscretion
+  conversationHistory: Message[] = [], // NEW: conversation context
+  conversationSummary?: string | null, // NEW: optional summary (Pro users)
+  responseStyle?: ResponseStyleHush | ResponseStyleClassified | ResponseStyleDiscretion,
+  onTokenCallback?: (token: string) => void // STREAMING: Optional callback for token-by-token updates
 ): Promise<string> {
   try {
     // Get active model from store
@@ -641,6 +648,34 @@ export async function generateResponse(
       throw new Error('Model not initialized');
     }
 
+    // === CALCULATE DYNAMIC CONTEXT BUDGETS (Phase 4: AI Self-Awareness) ===
+    const store = useChatStore.getState();
+    const modelProfile = getModelProfile(activeMode);
+
+    // Get device capabilities (chip + RAM)
+    const deviceProfile = getDeviceProfile(
+      store.deviceCapabilities?.chipGeneration || 'A14',
+      store.deviceCapabilities?.totalMemoryGB || 4
+    );
+
+    // Calculate budgets combining model + device + tier + style
+    const budgets = calculateContextBudgets(
+      modelProfile,
+      deviceProfile,
+      store.subscriptionTier,
+      responseStyle || 'quick'
+    );
+
+    if (__DEV__) {
+      console.log('[LocalAI] Context budgets:', {
+        maxAIResponseTokens: budgets.maxAIResponseTokens,
+        estimatedResponseTime: budgets.estimatedResponseTime,
+        conversationHistoryTokens: budgets.conversationHistoryTokens,
+        totalAvailableContext: budgets.totalAvailableContext,
+        deviceScaling: budgets.deviceScalingApplied,
+      });
+    }
+
     // Select system prompt (same logic as GroqAI)
     let systemPrompt: string;
 
@@ -656,20 +691,57 @@ export async function generateResponse(
       systemPrompt = PERSONALITIES.DISCRETION[style];
     }
 
-    // Adjust max tokens based on style (same as GroqAI)
-    const maxTokens = (responseStyle === 'quick' || responseStyle === 'operator' || responseStyle === 'formal') ? 150 : 400;
+    // === INJECT BUDGET AWARENESS INTO SYSTEM PROMPT ===
+    // This prevents mid-sentence cutoffs by making AI aware of its token limits
+    const wordEstimate = Math.floor(budgets.maxAIResponseTokens * 0.75);
+    systemPrompt += `\n\nRESPONSE_BUDGET: ${budgets.maxAIResponseTokens} tokens (~${wordEstimate} words)
+CONSTRAINT: Complete your thought within budget. No mid-sentence cutoffs.
+ESTIMATED_TIME: ~${budgets.estimatedResponseTime} seconds`;
 
-    // Format messages for inference
-    // Using Gemma/Llama chat template format
-    const formattedPrompt = `<start_of_turn>system
+    // Use calculated budget instead of hardcoded values
+    const maxTokens = budgets.maxAIResponseTokens;
+
+    // === BUILD MULTI-TURN PROMPT WITH CONVERSATION HISTORY (P1.10) ===
+    // Using Gemma/Llama chat template format: <start_of_turn>{role}\n{text}<end_of_turn>\n
+
+    // 1. System prompt
+    let formattedPrompt = `<start_of_turn>system
 ${systemPrompt}<end_of_turn>
-<start_of_turn>user
+`;
+
+    // 2. Inject conversation summary if available (Pro users)
+    if (conversationSummary) {
+      formattedPrompt += `<start_of_turn>system
+[Previous conversation summary: ${conversationSummary}]<end_of_turn>
+`;
+      if (__DEV__) {
+        console.log('[LocalAI] Including conversation summary');
+      }
+    }
+
+    // 3. Inject conversation history (recent messages)
+    for (const msg of conversationHistory) {
+      if (msg.role === 'user') {
+        formattedPrompt += `<start_of_turn>user
+${msg.text}<end_of_turn>
+`;
+      } else if (msg.role === 'ai') {
+        formattedPrompt += `<start_of_turn>model
+${msg.text}<end_of_turn>
+`;
+      }
+      // Skip system messages (they're UI alerts, not part of conversation)
+    }
+
+    // 4. Append current user message
+    formattedPrompt += `<start_of_turn>user
 ${prompt}<end_of_turn>
 <start_of_turn>model
 `;
 
     if (__DEV__) {
-      console.log('[LocalAI] Generating response...');
+      const estimatedTokens = estimateTokens(formattedPrompt);
+      console.log(`[LocalAI] Generating response with ${conversationHistory.length} history messages (~${estimatedTokens} tokens)...`);
     }
 
     // P1 fix: Re-check context before inference (could have been released due to memory pressure)
@@ -691,9 +763,14 @@ ${prompt}<end_of_turn>
         stop: ['<end_of_turn>', '<start_of_turn>', '\n\n\n'],
       },
       (data) => {
-        // Progress callback - could use for streaming UI later
-        if (__DEV__ && data.token) {
-          // Log tokens in dev mode
+        // STREAMING: Call token callback for real-time UI updates
+        if (data.token && onTokenCallback) {
+          try {
+            onTokenCallback(data.token);
+          } catch (err) {
+            console.error('[LocalAI] Token callback error:', err);
+            // Continue generation even if UI update fails
+          }
         }
       }
     );
@@ -744,7 +821,8 @@ export async function generateGameResponse(
   systemPrompt: string,
   conversationHistory: Array<{ role: 'user' | 'ai', text: string }>,
   userMessage: string,
-  maxTokens: number = 150
+  maxTokens: number = 150,
+  onTokenCallback?: (token: string) => void // STREAMING: Optional callback for token-by-token updates
 ): Promise<string> {
   try {
     // Get active model from store
@@ -767,6 +845,37 @@ export async function generateGameResponse(
 
     if (!llamaContext) {
       throw new Error('Model not initialized');
+    }
+
+    // === CALCULATE DYNAMIC CONTEXT BUDGETS FOR GAMES (Phase 4: AI Self-Awareness) ===
+    const store = useChatStore.getState();
+    const modelProfile = getModelProfile(activeMode);
+
+    // Get device capabilities (chip + RAM)
+    const deviceProfile = getDeviceProfile(
+      store.deviceCapabilities?.chipGeneration || 'A14',
+      store.deviceCapabilities?.totalMemoryGB || 4
+    );
+
+    // Games use 'quick' style budgets for fast responses
+    const budgets = calculateContextBudgets(
+      modelProfile,
+      deviceProfile,
+      store.subscriptionTier,
+      'quick'
+    );
+
+    // Use calculated budget (override default parameter if not explicitly set)
+    if (maxTokens === 150) {
+      // User didn't specify custom maxTokens, use calculated budget
+      maxTokens = budgets.maxAIResponseTokens;
+    }
+
+    if (__DEV__) {
+      console.log('[LocalAI] Game budgets:', {
+        maxTokens,
+        estimatedResponseTime: budgets.estimatedResponseTime,
+      });
     }
 
     // Build conversation context
@@ -804,9 +913,14 @@ ${userMessage}<end_of_turn>
         stop: ['<end_of_turn>', '<start_of_turn>', '\n\n\n'],
       },
       (data) => {
-        // Progress callback - could use for streaming UI later
-        if (__DEV__ && data.token) {
-          // Log tokens in dev mode
+        // STREAMING: Call token callback for real-time UI updates
+        if (data.token && onTokenCallback) {
+          try {
+            onTokenCallback(data.token);
+          } catch (err) {
+            console.error('[LocalAI] Token callback error:', err);
+            // Continue generation even if UI update fails
+          }
         }
       }
     );
@@ -900,6 +1014,16 @@ export async function syncDownloadedModels(): Promise<void> {
 export async function warmUpModel(): Promise<void> {
   try {
     const { activeMode } = useChatStore.getState();
+
+    // Check if model is downloaded before attempting warm-up
+    const isDownloaded = await isModelDownloaded(activeMode);
+    if (!isDownloaded) {
+      if (__DEV__) {
+        console.log(`[LocalAI] Model not downloaded yet (${activeMode}), skipping warm-up`);
+      }
+      return; // Skip warm-up on first launch - model will initialize when user sends first message
+    }
+
     await initializeModel(activeMode);
 
     // Run a quick dummy inference to warm up the model

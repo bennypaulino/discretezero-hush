@@ -17,7 +17,15 @@ import { Keyboard } from 'react-native';
 import { generateResponse } from '../../engine/LocalAI';
 import { detectGameTrigger } from '../../engine/GameTriggers';
 import { validateMessageInput } from '../../utils/inputSanitizer';
-import type { AppFlavor, Message, ResponseStyleHush, ResponseStyleClassified, ResponseStyleDiscretion, GameId } from '../types';
+import {
+  estimateConversationTokens,
+  getContextWindowSize,
+  estimateTokens,
+} from '../../utils/tokenCounter';
+import type { AppFlavor, Message, ResponseStyleHush, ResponseStyleClassified, ResponseStyleDiscretion, GameId, PerformanceMode } from '../types';
+import { getModelProfile } from '../../engine/modelProfiles';
+import { getDeviceProfile } from '../../utils/deviceCapabilities';
+import { calculateContextBudgets, validateUserMessageLength } from '../../utils/contextBudgetCalculator';
 
 declare const __DEV__: boolean;
 
@@ -57,6 +65,22 @@ interface DiscoverySliceMinimal {
   setClassifiedDiscovered: (discovered: boolean) => void;
 }
 
+interface PerformanceSliceMinimal {
+  activeMode: PerformanceMode;
+  deviceCapabilities: { chipGeneration: string; totalMemoryGB: number } | null;
+}
+
+/**
+ * Conversation Summary for Pro users
+ * Stores AI-generated summary of oldest conversation messages
+ */
+interface ConversationSummary {
+  summaryText: string; // AI-generated summary
+  summarizedUpToMessageId: string; // Last message ID included in summary
+  createdAt: number; // Timestamp when summary was generated
+  tokenCount: number; // Estimated tokens in summary
+}
+
 export interface ChatSlice {
   // --- STATE ---
   flavor: AppFlavor;
@@ -65,6 +89,16 @@ export interface ChatSlice {
   isTyping: boolean;
   totalMessagesProtected: number; // Counter for Privacy Dashboard
 
+  // --- CONVERSATION MEMORY STATE (New) ---
+  conversationSummaries: Record<AppFlavor, ConversationSummary | null>; // Per-flavor AI summaries (Pro)
+  lastSummarizationCheck: Record<AppFlavor, number>; // Timestamp of last summarization check
+
+  // --- STREAMING STATE (P1.11 Phase 0) ---
+  streamingMessageId: string | null; // ID of message currently streaming
+  streamingText: string; // Accumulated text being streamed
+  streamingTokenCount: number; // Number of tokens streamed so far
+  placeholderTimeoutId: NodeJS.Timeout | null; // Timeout to clear stuck placeholders (15s)
+
   // --- ACTIONS ---
   toggleFlavor: () => void;
   setFlavor: (flavor: AppFlavor) => void;
@@ -72,14 +106,225 @@ export interface ChatSlice {
   addMessage: (text: string, role: 'user' | 'ai' | 'system') => void;
   sendMessage: (text: string) => Promise<void>;
   clearHistory: () => void;
+  clearAllMessages: () => void; // Panic wipe: clears EVERYTHING
+
+  // --- STREAMING ACTIONS (P1.11 Phase 0) ---
+  startStreaming: (messageId: string) => void;
+  appendStreamingToken: (token: string) => void;
+  finishStreaming: () => void;
 }
 
 export const createChatSlice: StateCreator<
-  ChatSlice & SecuritySliceMinimal & SubscriptionSliceMinimal & GamificationSliceMinimal & ThemingSliceMinimal & DiscoverySliceMinimal,
+  ChatSlice & SecuritySliceMinimal & SubscriptionSliceMinimal & GamificationSliceMinimal & ThemingSliceMinimal & DiscoverySliceMinimal & PerformanceSliceMinimal,
   [],
   [],
   ChatSlice
-> = (set, get) => ({
+> = (set, get) => {
+  /**
+   * Get conversation history for AI context
+   *
+   * FREE TIER: Token-based sliding window (Phase 5: Dynamic Context Budgets)
+   * - Calculates available history tokens based on model + device + tier
+   * - Builds history backwards from most recent until budget reached
+   * - Ensures we never exceed calculated conversationHistoryTokens budget
+   *
+   * PRO TIER: Full history
+   * - Returns all messages for current flavor
+   * - Summarization handles overflow at 80% capacity
+   *
+   * @param messages - Message array (real or decoy)
+   * @param flavor - Current flavor (HUSH, CLASSIFIED, DISCRETION)
+   * @param subscriptionTier - User's subscription tier
+   * @param activeMode - Current performance mode
+   * @param responseStyle - Current response style (for budget calculation)
+   * @param deviceCapabilities - Device capabilities from store
+   * @returns Filtered message history for AI
+   */
+  const getConversationHistory = (
+    messages: Message[],
+    flavor: AppFlavor,
+    subscriptionTier: 'FREE' | 'MONTHLY' | 'YEARLY',
+    activeMode: PerformanceMode,
+    responseStyle?: ResponseStyleHush | ResponseStyleClassified | ResponseStyleDiscretion,
+    deviceCapabilities?: { chipGeneration: string; totalMemoryGB: number } | null
+  ): Message[] => {
+    // Filter to current flavor, exclude system messages
+    // System messages are UI alerts, not part of conversation
+    const flavorMessages = messages.filter(
+      (m) => m.context === flavor && m.role !== 'system'
+    );
+
+    // PRO USERS: Return full history
+    // Summarization will handle context window overflow
+    if (subscriptionTier !== 'FREE') {
+      return flavorMessages;
+    }
+
+    // === FREE USERS: TOKEN-BASED SLIDING WINDOW (Phase 5) ===
+    // Calculate dynamic budget based on model + device + tier
+    const modelProfile = getModelProfile(activeMode);
+    const deviceProfile = getDeviceProfile(
+      deviceCapabilities?.chipGeneration || 'A14',
+      deviceCapabilities?.totalMemoryGB || 4
+    );
+
+    const budgets = calculateContextBudgets(
+      modelProfile,
+      deviceProfile,
+      subscriptionTier,
+      responseStyle || 'quick'
+    );
+
+    // Build history backwards from most recent, stopping when budget reached
+    const historyBudget = budgets.conversationHistoryTokens;
+    const selectedMessages: Message[] = [];
+    let accumulatedTokens = 0;
+
+    // Iterate backwards through messages (most recent first)
+    for (let i = flavorMessages.length - 1; i >= 0; i--) {
+      const msg = flavorMessages[i];
+      const msgTokens = estimateTokens(msg.text);
+
+      // Check if adding this message would exceed budget
+      if (accumulatedTokens + msgTokens > historyBudget) {
+        // Budget reached - stop adding messages
+        break;
+      }
+
+      // Add message (prepend since we're going backwards)
+      selectedMessages.unshift(msg);
+      accumulatedTokens += msgTokens;
+    }
+
+    if (__DEV__ && flavorMessages.length > selectedMessages.length) {
+      console.log(
+        `[Memory] Free tier token-based sliding window: ${selectedMessages.length}/${flavorMessages.length} messages (${accumulatedTokens}/${historyBudget} tokens)`
+      );
+    }
+
+    return selectedMessages;
+  };
+
+  /**
+   * Check if summarization is needed and trigger if so (Pro tier only)
+   *
+   * Monitors conversation token usage and triggers AI summarization
+   * when context window reaches 80% capacity.
+   *
+   * FREE TIER: No-op (sliding window handles memory)
+   * PRO TIER: Summarizes oldest 50% of messages at 80% capacity
+   *
+   * @param flavor - Current flavor to check
+   */
+  const checkAndSummarizeIfNeeded = async (flavor: AppFlavor): Promise<void> => {
+    const state = get();
+
+    // Only Pro users get summarization
+    if (state.subscriptionTier === 'FREE') {
+      return;
+    }
+
+    // Calculate current context usage
+    const flavorMessages = state.messages.filter(
+      (m) => m.context === flavor && m.role !== 'system'
+    );
+
+    if (flavorMessages.length === 0) {
+      return; // No messages to summarize
+    }
+
+    const currentTokens = estimateConversationTokens(flavorMessages, 'long');
+    const contextWindow = getContextWindowSize(state.activeMode);
+    const usagePercent = (currentTokens / contextWindow) * 100;
+
+    // Trigger at 80% capacity
+    if (usagePercent >= 80) {
+      console.log(
+        `[Memory] Context ${usagePercent.toFixed(0)}% full (${currentTokens}/${contextWindow} tokens) - triggering summarization`
+      );
+      await summarizeConversation(flavor);
+    }
+  };
+
+  /**
+   * Generate AI summary of oldest conversation messages (Pro tier)
+   *
+   * Summarizes oldest 50% of messages and stores the summary.
+   * The summary is injected into future prompts to provide compressed context.
+   *
+   * This is a BLOCKING operation (~2-3 seconds) that shows a loading state.
+   *
+   * @param flavor - Flavor to summarize
+   */
+  const summarizeConversation = async (flavor: AppFlavor): Promise<void> => {
+    const state = get();
+
+    // Get messages to summarize (oldest 50%)
+    const flavorMessages = state.messages.filter(
+      (m) => m.context === flavor && m.role !== 'system'
+    );
+
+    if (flavorMessages.length < 10) {
+      // Don't summarize very short conversations
+      return;
+    }
+
+    const midpoint = Math.floor(flavorMessages.length / 2);
+    const messagesToSummarize = flavorMessages.slice(0, midpoint);
+
+    // Build summary prompt
+    const conversationText = messagesToSummarize
+      .map((m) => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`)
+      .join('\n');
+
+    const summaryPrompt = `Summarize this conversation concisely (2-3 sentences). Focus on key topics, user preferences, and important context:
+
+${conversationText}
+
+Summary:`;
+
+    try {
+      // Show loading state while summarizing
+      set({ isTyping: true });
+
+      // Call AI for summarization (no history, no prior summary)
+      const summary = await generateResponse(
+        summaryPrompt,
+        flavor,
+        [], // No history for summarization call
+        null, // No prior summary
+        state.responseStyleHush // Or appropriate style for flavor
+      );
+
+      // Store summary
+      const summaryObj: ConversationSummary = {
+        summaryText: summary,
+        summarizedUpToMessageId: messagesToSummarize[messagesToSummarize.length - 1].id,
+        createdAt: Date.now(),
+        tokenCount: estimateTokens(summary) + 20, // +20 for template overhead
+      };
+
+      set((state) => ({
+        conversationSummaries: {
+          ...state.conversationSummaries,
+          [flavor]: summaryObj,
+        },
+        lastSummarizationCheck: {
+          ...state.lastSummarizationCheck,
+          [flavor]: Date.now(),
+        },
+        isTyping: false,
+      }));
+
+      console.log('[Memory] Summary generated:', summary.substring(0, 100) + '...');
+    } catch (error) {
+      console.error('[Memory] Summarization failed:', error);
+      // Fail silently - don't block user
+      set({ isTyping: false });
+    }
+  };
+
+  return {
   // --- INITIAL STATE ---
   flavor: 'HUSH' as AppFlavor, // Default to HUSH
   privacyBlurEnabled: true,
@@ -87,8 +332,31 @@ export const createChatSlice: StateCreator<
   isTyping: false,
   totalMessagesProtected: 0,
 
+  // --- CONVERSATION MEMORY INITIAL STATE ---
+  conversationSummaries: {
+    HUSH: null,
+    CLASSIFIED: null,
+    DISCRETION: null,
+  },
+  lastSummarizationCheck: {
+    HUSH: 0,
+    CLASSIFIED: 0,
+    DISCRETION: 0,
+  },
+
+  // --- STREAMING INITIAL STATE (P1.11 Phase 0) ---
+  streamingMessageId: null,
+  streamingText: '',
+  streamingTokenCount: 0,
+  placeholderTimeoutId: null,
+
   // --- ACTIONS ---
   toggleFlavor: () => {
+    // CRITICAL FIX: Clean up any active streaming when switching flavors
+    if (get().streamingMessageId) {
+      get().finishStreaming();
+    }
+
     const { flavor } = get();
 
     let next: AppFlavor = 'HUSH';
@@ -194,6 +462,48 @@ export const createChatSlice: StateCreator<
 
     let state = get();
 
+    // === PHASE 6: USER INPUT VALIDATION (Free tier 600 token limit) ===
+    // Calculate budgets to check message length limits
+    const modelProfile = getModelProfile(state.activeMode);
+    const deviceProfile = getDeviceProfile(
+      state.deviceCapabilities?.chipGeneration || 'A14',
+      state.deviceCapabilities?.totalMemoryGB || 4
+    );
+
+    // Determine response style for budget calculation
+    const responseStyle =
+      state.flavor === 'HUSH'
+        ? state.responseStyleHush
+        : state.flavor === 'CLASSIFIED'
+        ? state.responseStyleClassified
+        : state.flavor === 'DISCRETION'
+        ? state.responseStyleDiscretion
+        : 'quick';
+
+    const budgets = calculateContextBudgets(
+      modelProfile,
+      deviceProfile,
+      state.subscriptionTier,
+      responseStyle
+    );
+
+    // Validate message length (Free tier only)
+    const messageTokens = estimateTokens(sanitizedText);
+    const lengthValidation = validateUserMessageLength(messageTokens, budgets);
+
+    if (!lengthValidation.valid) {
+      // Message exceeds Free tier limit - show error and block
+      if (__DEV__) {
+        console.warn('[sendMessage] Message exceeds Free tier limit:', lengthValidation.error);
+      }
+
+      state.addMessage(
+        `⚠️ ${lengthValidation.error}`,
+        'system'
+      );
+      return;
+    }
+
     // Check for daily reset before processing message
     state.checkDailyReset();
 
@@ -292,18 +602,216 @@ export const createChatSlice: StateCreator<
       const capturedFlavor = state.flavor;
       const capturedMessages = state.messages;
 
-      const response = await generateResponse(sanitizedText, capturedFlavor, responseStyle);
+      // === CONVERSATION MEMORY (P1.10) ===
+      // Determine which message array to use (real vs decoy)
+      const messagesArray = state.isDecoyMode
+        ? (capturedFlavor === 'HUSH' ? state.customDecoyHushMessages : state.customDecoyClassifiedMessages)
+        : state.messages;
 
-      // Verify context hasn't changed before adding message (async cancellation check)
+      // Get conversation history (token-based sliding window for Free, full for Pro)
+      const conversationHistory = getConversationHistory(
+        messagesArray,
+        capturedFlavor,
+        state.subscriptionTier,
+        state.activeMode,
+        responseStyle,
+        state.deviceCapabilities
+      );
+
+      // Get summary if available (Pro users only)
+      const summary = state.conversationSummaries[capturedFlavor]?.summaryText || null;
+
+      if (__DEV__) {
+        console.log(
+          `[Memory] Passing ${conversationHistory.length} messages to AI (${state.subscriptionTier} tier, ${state.activeMode} mode)`
+        );
+        if (summary) {
+          console.log('[Memory] Including conversation summary');
+        }
+      }
+
+      // === STREAMING (P1.11 Phase 0): Create placeholder message ===
+      const streamingMessageId = Date.now().toString();
+      const placeholderMessage: Message = {
+        id: streamingMessageId,
+        role: 'ai',
+        text: '', // Empty - will be filled by streaming
+        timestamp: Date.now(),
+        context: capturedFlavor,
+        isComplete: false, // Mark as incomplete during streaming
+      };
+
+      // Add placeholder to appropriate array
+      if (state.isDecoyMode) {
+        if (capturedFlavor === 'HUSH') {
+          set((s) => ({
+            customDecoyHushMessages: [...s.customDecoyHushMessages, placeholderMessage],
+          }));
+        } else if (capturedFlavor === 'CLASSIFIED') {
+          set((s) => ({
+            customDecoyClassifiedMessages: [...s.customDecoyClassifiedMessages, placeholderMessage],
+          }));
+        }
+      } else {
+        set((s) => ({
+          messages: [...s.messages, placeholderMessage],
+        }));
+      }
+
+      // Start streaming state
+      get().startStreaming(streamingMessageId);
+
+      // Set 15-second timeout to clear stuck placeholder if streaming fails
+      const timeoutId = setTimeout(() => {
+        const currentState = get();
+        // Only clear if this placeholder is still the active streaming message
+        if (currentState.streamingMessageId === streamingMessageId) {
+          if (__DEV__) {
+            console.log('[sendMessage] Placeholder timeout fired - clearing stuck typing indicator');
+          }
+
+          // Remove placeholder message from appropriate array
+          if (state.isDecoyMode) {
+            if (capturedFlavor === 'HUSH') {
+              set((s) => ({
+                customDecoyHushMessages: s.customDecoyHushMessages.filter(m => m.id !== streamingMessageId),
+              }));
+            } else if (capturedFlavor === 'CLASSIFIED') {
+              set((s) => ({
+                customDecoyClassifiedMessages: s.customDecoyClassifiedMessages.filter(m => m.id !== streamingMessageId),
+              }));
+            }
+          } else {
+            set((s) => ({
+              messages: s.messages.filter(m => m.id !== streamingMessageId),
+            }));
+          }
+
+          // Clear streaming state
+          get().finishStreaming();
+        }
+      }, 15000); // 15 seconds
+
+      // Store timeout ID so it can be cleared on successful completion
+      set({ placeholderTimeoutId: timeoutId });
+
+      // Call AI with streaming callback
+      const response = await generateResponse(
+        sanitizedText,
+        capturedFlavor,
+        conversationHistory, // NEW: conversation history
+        summary, // NEW: conversation summary (Pro)
+        responseStyle,
+        // STREAMING CALLBACK: Update streaming text on each token
+        (token: string) => {
+          get().appendStreamingToken(token);
+        }
+      );
+
+      // Verify context hasn't changed before finalizing message (async cancellation check)
       const currentState = get();
-      if (currentState.flavor === capturedFlavor && currentState.messages === capturedMessages) {
-        state.addMessage(response, 'ai');
+
+      // DEBUG: Log response and streaming state
+      if (__DEV__) {
+        console.log('[sendMessage] Response received:', {
+          responseLength: response.length,
+          responsePreview: response.substring(0, 50),
+          streamingMessageId,
+          currentStreamingText: currentState.streamingText.substring(0, 50),
+        });
+      }
+
+      // Check if context is still valid (flavor unchanged AND placeholder message still exists)
+      // Check appropriate array based on decoy mode
+      const messagesArrayToCheck = state.isDecoyMode
+        ? (capturedFlavor === 'HUSH' ? currentState.customDecoyHushMessages : currentState.customDecoyClassifiedMessages)
+        : currentState.messages;
+      const placeholderStillExists = messagesArrayToCheck.some(m => m.id === streamingMessageId);
+
+      if (currentState.flavor === capturedFlavor && placeholderStillExists) {
+        // Update placeholder message with final text and mark complete
+        const finalMessage: Message = {
+          ...placeholderMessage,
+          text: response,
+          isComplete: true,
+        };
+
+        // DEBUG: Log final message
+        if (__DEV__) {
+          console.log('[sendMessage] Updating message:', {
+            messageId: finalMessage.id,
+            textLength: finalMessage.text.length,
+            textPreview: finalMessage.text.substring(0, 50),
+          });
+        }
+
+        // CRITICAL FIX: Atomically update message AND clear streaming state in ONE set() call
+        // This prevents race condition where component re-renders with empty text before message update
+        if (state.isDecoyMode) {
+          if (capturedFlavor === 'HUSH') {
+            set((s) => ({
+              customDecoyHushMessages: s.customDecoyHushMessages.map((m) =>
+                m.id === streamingMessageId ? finalMessage : m
+              ),
+              // Clear streaming state in same update
+              streamingMessageId: null,
+              streamingText: '',
+              streamingTokenCount: 0,
+            }));
+          } else if (capturedFlavor === 'CLASSIFIED') {
+            set((s) => ({
+              customDecoyClassifiedMessages: s.customDecoyClassifiedMessages.map((m) =>
+                m.id === streamingMessageId ? finalMessage : m
+              ),
+              // Clear streaming state in same update
+              streamingMessageId: null,
+              streamingText: '',
+              streamingTokenCount: 0,
+            }));
+          }
+        } else {
+          set((s) => ({
+            messages: s.messages.map((m) => (m.id === streamingMessageId ? finalMessage : m)),
+            totalMessagesProtected: s.totalMessagesProtected + 1, // Count completed AI message
+            // Clear streaming state in same update
+            streamingMessageId: null,
+            streamingText: '',
+            streamingTokenCount: 0,
+          }));
+        }
+
+        // DEBUG: Verify message was updated
+        if (__DEV__) {
+          const updatedState = get();
+          const updatedMessage = updatedState.messages.find(m => m.id === streamingMessageId);
+          console.log('[sendMessage] Message updated in state:', {
+            found: !!updatedMessage,
+            textLength: updatedMessage?.text.length,
+            textPreview: updatedMessage?.text.substring(0, 50),
+            streamingCleared: updatedState.streamingMessageId === null,
+          });
+        }
+
+        // === CONVERSATION MEMORY: Check if summarization needed (Pro tier) ===
+        if (currentState.subscriptionTier !== 'FREE') {
+          // Run summarization check asynchronously (don't block UI)
+          // This is safe because it only reads state and updates summarization metadata
+          checkAndSummarizeIfNeeded(capturedFlavor).catch((err) => {
+            if (__DEV__) {
+              console.error('[Memory] Summarization check failed:', err);
+            }
+          });
+        }
       } else {
         if (__DEV__) {
           console.log('[sendMessage] Context changed during AI generation, discarding stale response');
         }
+        // Clean up streaming state
+        get().finishStreaming();
       }
     } catch (e) {
+      // CRITICAL FIX: Clean up streaming state on error
+      get().finishStreaming();
       state.addMessage('Error: Connection lost.', 'system');
     } finally {
       set({ isTyping: false });
@@ -311,11 +819,22 @@ export const createChatSlice: StateCreator<
   },
 
   clearHistory: () => {
+    // CRITICAL FIX: Clean up streaming state if active
+    if (get().streamingMessageId) {
+      get().finishStreaming();
+    }
+
     const { flavor, messages, isDecoyMode, customDecoyHushMessages, customDecoyClassifiedMessages } = get();
 
+    console.log('[clearHistory] Called - flavor:', flavor, 'isDecoyMode:', isDecoyMode);
+    console.log('[clearHistory] Total messages before clear:', messages.length);
+    console.log('[clearHistory] Message contexts:', messages.map(m => m.context).join(', '));
+
     if (isDecoyMode) {
+      console.log('[clearHistory] DECOY MODE - clearing decoy messages');
       // SECURITY: Overwrite decoy message contents before clearing
       if (flavor === 'HUSH') {
+        console.log('[clearHistory] Clearing', customDecoyHushMessages.length, 'Hush decoy messages');
         // Overwrite message text with random data for forensic protection
         customDecoyHushMessages.forEach((msg) => {
           if (msg.text) {
@@ -331,6 +850,7 @@ export const createChatSlice: StateCreator<
           decoyBurned: true, // Mark as burned to prevent preset refill
         });
       } else if (flavor === 'CLASSIFIED') {
+        console.log('[clearHistory] Clearing', customDecoyClassifiedMessages.length, 'Classified decoy messages');
         // Overwrite message text with random data
         customDecoyClassifiedMessages.forEach((msg) => {
           if (msg.text) {
@@ -360,12 +880,124 @@ export const createChatSlice: StateCreator<
       });
 
       // Filters out messages from the CURRENT context
-      set({ messages: messages.filter((m) => m.context !== flavor) });
+      const filteredMessages = messages.filter((m) => m.context !== flavor);
+      console.log('[clearHistory] Messages after filter:', filteredMessages.length);
+      console.log('[clearHistory] Clearing', messages.length - filteredMessages.length, 'messages from', flavor, 'context');
+      set({ messages: filteredMessages });
     }
+
+    console.log('[clearHistory] Complete - new message count:', get().messages.length);
 
     // NOTE: Zustand persist middleware will automatically flush to AsyncStorage
     // after this set() call completes. For additional security, consider:
     // 1. Manually triggering GC if available: if (global.gc) global.gc();
     // 2. Multiple overwrite passes (DoD 5220.22-M standard)
   },
-});
+
+  /**
+   * PANIC WIPE: Clears ALL messages (real + decoy) for emergency situations
+   * Unlike clearHistory(), this clears EVERYTHING regardless of mode/context
+   *
+   * Called by: usePanicWipe hook when triple-shake detected
+   *
+   * Security behavior:
+   * - Overwrites all message text with random data (forensic protection)
+   * - Clears all real messages (all contexts: HUSH, CLASSIFIED, DISCRETION)
+   * - Clears all decoy messages (Hush + Classified presets and custom)
+   * - Marks decoy as burned (prevents refill)
+   * - Does NOT exit decoy mode (handled by usePanicWipe)
+   */
+  clearAllMessages: () => {
+    const { messages, customDecoyHushMessages, customDecoyClassifiedMessages } = get();
+
+    console.log('[clearAllMessages] 🚨 PANIC WIPE - clearing ALL messages');
+    console.log('[clearAllMessages] Real messages:', messages.length);
+    console.log('[clearAllMessages] Hush decoy messages:', customDecoyHushMessages.length);
+    console.log('[clearAllMessages] Classified decoy messages:', customDecoyClassifiedMessages.length);
+
+    // SECURITY: Overwrite all real message contents with random data
+    messages.forEach((msg) => {
+      if (msg.text) {
+        const randomChars = Array.from({ length: msg.text.length }, () =>
+          String.fromCharCode(Math.floor(Math.random() * 94) + 33)
+        ).join('');
+        msg.text = randomChars;
+      }
+    });
+
+    // SECURITY: Overwrite all Hush decoy message contents
+    customDecoyHushMessages.forEach((msg) => {
+      if (msg.text) {
+        const randomChars = Array.from({ length: msg.text.length }, () =>
+          String.fromCharCode(Math.floor(Math.random() * 94) + 33)
+        ).join('');
+        msg.text = randomChars;
+      }
+    });
+
+    // SECURITY: Overwrite all Classified decoy message contents
+    customDecoyClassifiedMessages.forEach((msg) => {
+      if (msg.text) {
+        const randomChars = Array.from({ length: msg.text.length }, () =>
+          String.fromCharCode(Math.floor(Math.random() * 94) + 33)
+        ).join('');
+        msg.text = randomChars;
+      }
+    });
+
+    // Clear everything
+    set({
+      messages: [], // Clear all real messages
+      customDecoyHushMessages: [], // Clear Hush decoy messages
+      customDecoyClassifiedMessages: [], // Clear Classified decoy messages
+      decoyBurned: true, // Mark as burned to prevent preset refill
+    });
+
+    console.log('[clearAllMessages] ✅ Complete - all messages wiped');
+    console.log('[clearAllMessages] Messages remaining:', get().messages.length);
+  },
+
+  // --- STREAMING ACTIONS (P1.11 Phase 0) ---
+  /**
+   * Start streaming a new AI response
+   * Creates a placeholder message and sets streaming state
+   */
+  startStreaming: (messageId: string) => {
+    set({
+      streamingMessageId: messageId,
+      streamingText: '',
+      streamingTokenCount: 0,
+    });
+  },
+
+  /**
+   * Append a token to the streaming text
+   * Called for each token received from AI
+   */
+  appendStreamingToken: (token: string) => {
+    set((state) => ({
+      streamingText: state.streamingText + token,
+      streamingTokenCount: state.streamingTokenCount + 1,
+    }));
+  },
+
+  /**
+   * Finish streaming and finalize the message
+   * Marks streaming as complete and clears streaming state
+   */
+  finishStreaming: () => {
+    // Clear placeholder timeout if it exists
+    const currentState = get();
+    if (currentState.placeholderTimeoutId) {
+      clearTimeout(currentState.placeholderTimeoutId);
+    }
+
+    set({
+      streamingMessageId: null,
+      streamingText: '',
+      streamingTokenCount: 0,
+      placeholderTimeoutId: null,
+    });
+  },
+  }; // Close returned object
+}; // Close createChatSlice function

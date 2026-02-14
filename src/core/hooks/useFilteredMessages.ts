@@ -76,13 +76,13 @@ export const useFilteredMessages = (flavor: AppFlavor) => {
     // If no preset or custom messages, return empty array
     return [];
   }, [
-    messages.length,
+    messages, // Changed from messages.length to detect content changes
     isDecoyMode,
     decoyBurned,
     flavor,
     hushDecoyPreset,
     classifiedDecoyPreset,
-    customDecoyHushMessages.length,
-    customDecoyClassifiedMessages.length,
+    customDecoyHushMessages,
+    customDecoyClassifiedMessages,
   ]);
 };

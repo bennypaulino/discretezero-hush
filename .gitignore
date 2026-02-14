@@ -54,3 +54,7 @@ service-account-key.json
 
 # Large AI model files (too big for git/Metro)
 assets/models/*.gguf
+
+# Claude Code workflow files
+.claude/
+CLAUDE.md
