@@ -33,6 +33,8 @@ import NetInfo from '@react-native-community/netinfo';
 import { shouldOfferBalanced } from '../../core/utils/deviceCapabilities';
 // STREAMING (P1.11 Phase 0): Keep screen awake during AI generation
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
+// TOKEN COUNTER (P1.11 Phase 6.5): Live token counter
+import { estimateTokens } from '../../core/utils/tokenCounter';
 
 
 export const HushScreen = () => {
@@ -191,6 +193,45 @@ export const HushScreen = () => {
 
   // Get messages to display based on decoy mode
   const displayMessages = useFilteredMessages('HUSH');
+
+  // --- TOKEN COUNTER (P1.11 Phase 6.5) ---
+  const tokenCountInfo = useMemo(() => {
+    const tokenCount = estimateTokens(input);
+    const FREE_LIMIT = 600;
+
+    // Free tier: show limit and color coding
+    if (subscriptionTier === 'FREE') {
+      const percentage = (tokenCount / FREE_LIMIT) * 100;
+      let color = activeTheme.colors.subtext; // Default gray
+
+      if (percentage >= 100) {
+        color = '#FF0000'; // Red - blocking
+      } else if (percentage >= 95) {
+        color = '#FF8800'; // Orange - critical warning
+      } else if (percentage >= 90) {
+        color = '#FFBB00'; // Yellow - warning
+      }
+
+      return {
+        text: `${tokenCount} / ${FREE_LIMIT} tokens`,
+        color,
+        show: true,
+      };
+    }
+
+    // Pro tier: only show when approaching hard cap (10,000 tokens)
+    const PRO_HARD_CAP = 10000;
+    if (tokenCount >= PRO_HARD_CAP * 0.8) {
+      const remaining = PRO_HARD_CAP - tokenCount;
+      return {
+        text: `${remaining} tokens remaining`,
+        color: remaining < 1000 ? '#FF8800' : activeTheme.colors.subtext,
+        show: true,
+      };
+    }
+
+    return { text: '', color: '', show: false };
+  }, [input, subscriptionTier, activeTheme.colors.subtext]);
 
   // --- AUTOMATIC PAYWALL LISTENER ---
   // PaywallModal now renders independently based on showPaywall state
@@ -652,19 +693,27 @@ Choose what you need right now.`;
 
                 {/* INPUT */}
                 <View style={styles.inputContainer}>
-                    <TextInput
-                        style={[styles.input, { color: activeTheme.colors.primary, borderColor: activeTheme.colors.primary }]}
-                        placeholder="Whisper something..."
-                        placeholderTextColor={activeTheme.colors.subtext}
-                        value={input}
-                        onChangeText={setInput}
-                        onSubmitEditing={handleSend}
-                        keyboardAppearance="dark"
-                        multiline
-                        textAlignVertical="center"
-                        accessibilityLabel="Message input"
-                        accessibilityHint="Type your message here"
-                    />
+                    <View style={{ flex: 1 }}>
+                        <TextInput
+                            style={[styles.input, { color: activeTheme.colors.primary, borderColor: activeTheme.colors.primary }]}
+                            placeholder="Whisper something..."
+                            placeholderTextColor={activeTheme.colors.subtext}
+                            value={input}
+                            onChangeText={setInput}
+                            onSubmitEditing={handleSend}
+                            keyboardAppearance="dark"
+                            multiline
+                            textAlignVertical="center"
+                            accessibilityLabel="Message input"
+                            accessibilityHint="Type your message here"
+                        />
+                        {/* TOKEN COUNTER (P1.11 Phase 6.5) */}
+                        {tokenCountInfo.show && (
+                            <Text style={[styles.tokenCounter, { color: tokenCountInfo.color }]}>
+                                {tokenCountInfo.text}
+                            </Text>
+                        )}
+                    </View>
                     <TouchableOpacity
                         onPress={handleSend}
                         accessibilityLabel="Send message"
@@ -712,6 +761,7 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 10, fontWeight: '700' },
   inputContainer: { flexDirection: 'row', padding: 20, alignItems: 'center', gap: 10 },
   input: { flex: 1, minHeight: 50, maxHeight: 120, borderRadius: 25, borderWidth: 1, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 14 },
+  tokenCounter: { fontSize: 12, textAlign: 'right', marginTop: 4, marginRight: 20 },
   noModelTitle: {
     fontSize: 24,
     fontWeight: '600',
