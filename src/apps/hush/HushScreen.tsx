@@ -683,7 +683,8 @@ Choose what you need right now.`;
 
                 {/* TYPING INDICATOR (P1.11 Phase 7) - Shows before streaming starts */}
                 {isTyping && !streamingMessageId && (
-                  <View style={{ marginLeft: 20, marginBottom: 10 }}>
+                  <View style={{ marginLeft: 20, marginBottom: 10, backgroundColor: 'rgba(255,0,0,0.3)' }}>
+                    {__DEV__ && console.log('[HushScreen] Rendering typing indicator')}
                     <TypingIndicator flavor="HUSH" color={activeTheme.colors.primary} />
                   </View>
                 )}
