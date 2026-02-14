@@ -20,6 +20,7 @@ import { useAutoScroll } from '../../core/hooks/useAutoScroll';
 import { useFilteredMessages } from '../../core/hooks/useFilteredMessages';
 import { Typewriter } from '../../core/ui/Typewriter';
 import { SettingsModal } from '../../core/ui/SettingsModal';
+import { TypingIndicator } from '../../core/ui/TypingIndicator';
 import { BlurView } from 'expo-blur';
 import { useDoubleTap } from '../../core/hooks/useDoubleTap';
 import { LockScreen } from '../../core/security/LockScreen';
@@ -367,7 +368,12 @@ export const DiscretionScreen = () => {
             updateCellsBatchingPeriod={50}
           />
 
-          {isTyping && <Text style={styles.status}>Processing...</Text>}
+          {/* TYPING INDICATOR (P1.11 Phase 7) - Shows before streaming starts */}
+          {isTyping && !streamingMessageId && (
+            <View style={{ marginLeft: 20, marginBottom: 10 }}>
+              <TypingIndicator flavor="DISCRETION" color={appTheme.colors.primary} />
+            </View>
+          )}
 
           <PrivacyBlock isSecure={privacyBlurEnabled} onToggle={handleGlobalDoubleTap}>
               <View style={[styles.inputBar, { borderTopColor: THEME.surface, backgroundColor: THEME.bg }]}>

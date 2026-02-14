@@ -13,6 +13,7 @@ import { useFilteredMessages } from '../../core/hooks/useFilteredMessages';
 import { useAnimatedValue } from '../../core/hooks/useAnimatedValue';
 import { PrivacyMessage } from './components/PrivacyMessage';
 import { SettingsModal } from '../../core/ui/SettingsModal';
+import { TypingIndicator } from '../../core/ui/TypingIndicator';
 import { BadgeUnlockModal } from '../../core/ui/BadgeUnlockModal';
 import { ModelDownloadErrorModal } from '../../core/ui/ModelDownloadErrorModal';
 import { UsageIndicator } from '../../core/ui/UsageIndicator';
@@ -680,7 +681,12 @@ Choose what you need right now.`;
                     </Animated.View>
                 </View>
 
-                {isTyping && <Text style={{ color: '#666', marginLeft: 20, marginBottom: 10 }}>Hush is thinking...</Text>}
+                {/* TYPING INDICATOR (P1.11 Phase 7) - Shows before streaming starts */}
+                {isTyping && !streamingMessageId && (
+                  <View style={{ marginLeft: 20, marginBottom: 10 }}>
+                    <TypingIndicator flavor="HUSH" color={activeTheme.colors.primary} />
+                  </View>
+                )}
 
                 {/* USAGE INDICATOR */}
                 <UsageIndicator

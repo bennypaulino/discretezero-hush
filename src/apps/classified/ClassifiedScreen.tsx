@@ -18,6 +18,7 @@ import { PaywallModal } from '../../core/ui/PaywallModal';
 import { PostPurchaseCelebration } from '../../core/ui/PostPurchaseCelebration';
 import { RedactedMessage } from './components/RedactedMessage';
 import { renderClearAnimation } from '../../core/animations/AnimationRegistry';
+import { TypingIndicator } from '../../core/ui/TypingIndicator';
 import { LockScreen } from '../../core/security/LockScreen';
 import { GAME_TRIGGERS } from '../../core/engine/GameTriggers';
 import { ProWelcomeModal } from '../../core/ui/ProWelcomeModal';
@@ -910,10 +911,12 @@ Type any protocol keyword to begin.`;
             />
           </Animated.View>
 
+          {/* TYPING INDICATOR (P1.11 Phase 7) - Terminal spinner before streaming starts */}
           {!isInIntro && isTyping && !streamingMessageId && (
-            <Text style={[styles.logText, { color: TACTICAL_COLOR, marginBottom: 10 }]}>
-              {'>'} DECRYPTING INCOMING PACKET...
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+              <Text style={{ color: TACTICAL_COLOR, fontFamily: 'Courier', fontWeight: 'bold', marginRight: 8 }}>{'>'}</Text>
+              <TypingIndicator flavor="CLASSIFIED" color={TACTICAL_COLOR} />
+            </View>
           )}
 
           {/* Input bar - fades in during intro */}
