@@ -108,16 +108,34 @@ export const ClassifiedScreen = ({
   // Sound effects for animations
   const { playForAnimation } = useSoundEffect();
 
-  const {
-    messages, sendMessage, addMessage, isTyping, clearHistory, toggleFlavor, togglePrivacyBlur,
-    privacyBlurEnabled, setFlavor, subscriptionTier, classifiedBurnStyle,
-    proFirstLaunchSeen, setProFirstLaunchSeen,
-    showPaywall, paywallReason, setShowPaywall, triggerPaywall,
-    showPostPurchaseCelebration, setShowPostPurchaseCelebration,
-    firstClassifiedBlockerSeen, classifiedDiscoveryUsedHints, discoveryHintsEnabled,
-    // STREAMING STATE (P1.11 Phase 0)
-    streamingMessageId, streamingText,
-  } = useChatStore();
+  // Selective Zustand subscriptions to prevent excessive re-renders
+  const messages = useChatStore((state) => state.messages);
+  const sendMessage = useChatStore((state) => state.sendMessage);
+  const addMessage = useChatStore((state) => state.addMessage);
+  const isTyping = useChatStore((state) => state.isTyping);
+  const clearHistory = useChatStore((state) => state.clearHistory);
+  const toggleFlavor = useChatStore((state) => state.toggleFlavor);
+  const togglePrivacyBlur = useChatStore((state) => state.togglePrivacyBlur);
+  const privacyBlurEnabled = useChatStore((state) => state.privacyBlurEnabled);
+  const setFlavor = useChatStore((state) => state.setFlavor);
+  const subscriptionTier = useChatStore((state) => state.subscriptionTier);
+  const classifiedBurnStyle = useChatStore((state) => state.classifiedBurnStyle);
+  const proFirstLaunchSeen = useChatStore((state) => state.proFirstLaunchSeen);
+  const setProFirstLaunchSeen = useChatStore((state) => state.setProFirstLaunchSeen);
+  const showPaywall = useChatStore((state) => state.showPaywall);
+  const paywallReason = useChatStore((state) => state.paywallReason);
+  const setShowPaywall = useChatStore((state) => state.setShowPaywall);
+  const triggerPaywall = useChatStore((state) => state.triggerPaywall);
+  const showPostPurchaseCelebration = useChatStore((state) => state.showPostPurchaseCelebration);
+  const setShowPostPurchaseCelebration = useChatStore((state) => state.setShowPostPurchaseCelebration);
+  const firstClassifiedBlockerSeen = useChatStore((state) => state.firstClassifiedBlockerSeen);
+  const classifiedDiscoveryUsedHints = useChatStore((state) => state.classifiedDiscoveryUsedHints);
+  const discoveryHintsEnabled = useChatStore((state) => state.discoveryHintsEnabled);
+
+  // STREAMING STATE (P1.11 Phase 0) - Only subscribe to streamingMessageId (changes rarely)
+  // DON'T subscribe to streamingText (changes 50-200 times per response)
+  // Access streamingText via getState() in renderItem to avoid excessive re-renders
+  const streamingMessageId = useChatStore((state) => state.streamingMessageId);
 
   const unlockBadge = useChatStore((state) => state.unlockBadge);
 
@@ -643,9 +661,10 @@ Type any protocol keyword to begin.`;
   }), []);
 
   const renderItem = useCallback(({ item }: { item: Message }) => {
-    // STREAMING (P1.11 Phase 0): Use streaming text for messages being generated
-    // NOTE: streamingMessageId/streamingText accessed via Zustand, updates trigger component re-render
-    const displayText = item.id === streamingMessageId ? streamingText : item.text;
+    // STREAMING (P1.11 Phase 0): Access streamingText via getState() to avoid subscription
+    // This prevents 50-200 re-renders per response while still getting latest text
+    const currentStreamingText = useChatStore.getState().streamingText;
+    const displayText = item.id === streamingMessageId ? currentStreamingText : item.text;
 
     // TYPING INDICATOR (P1.11 Phase 7): Show typing animation for placeholder messages
     const isPlaceholder = item.role === 'ai' && !displayText.trim() && !item.isComplete;
