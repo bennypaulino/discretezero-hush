@@ -14,7 +14,9 @@ const DAILY_LIMIT = 8;
 const SHOW_AFTER_COUNT = 4;
 
 export const UsageIndicator = ({ flavor, onPress }: UsageIndicatorProps) => {
-  const { dailyCount, subscriptionTier } = useChatStore();
+  // PERFORMANCE FIX: Use selective subscriptions instead of destructuring entire store
+  const dailyCount = useChatStore((state) => state.dailyCount);
+  const subscriptionTier = useChatStore((state) => state.subscriptionTier);
   const isPro = subscriptionTier !== 'FREE';
 
   // Don't show if user is Pro or hasn't reached the threshold

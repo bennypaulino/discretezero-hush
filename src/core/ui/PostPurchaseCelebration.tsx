@@ -14,7 +14,9 @@ export const PostPurchaseCelebration: React.FC<PostPurchaseCelebrationProps> = (
   visible,
   onComplete,
 }) => {
-  const { flavor, discretionTheme } = useChatStore();
+  // PERFORMANCE FIX: Use selective subscriptions instead of destructuring entire store
+  const flavor = useChatStore((state) => state.flavor);
+  const discretionTheme = useChatStore((state) => state.discretionTheme);
   const scaleAnim = useAnimatedValue(0.5);
   const opacityAnim = useAnimatedValue(0);
   const buttonOpacityAnim = useAnimatedValue(1); // Separate button fade
