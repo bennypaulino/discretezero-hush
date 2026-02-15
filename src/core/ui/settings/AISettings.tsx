@@ -1,17 +1,19 @@
 /**
  * AISettings
  *
- * Handles AI, Performance Modes, Conversation Memory, Storage Management, and Advanced Performance screens.
+ * Handles AI, Performance Modes, Conversation Memory, and Advanced Performance screens.
  * Includes model download management with progress tracking, resume logic, and cleanup.
+ * Storage information is displayed in Performance Modes footer (cross-platform).
  *
  * Phase 4 of P1.4 SettingsModal refactor.
  */
 
 import React, { useRef, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Platform, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as Device from 'expo-device';
+import * as IntentLauncher from 'expo-intent-launcher';
 import { useChatStore } from '../../state/rootStore';
 import type { AppFlavor } from '../../state/types';
 import { SettingsSubHeader } from './shared/SettingsSubHeader';
@@ -21,6 +23,7 @@ import { downloadModel, deleteModel, cancelDownload, hasActiveDownload } from '.
 import { getBalancedWarning, getQualityWarning, canDownloadQuality } from '../../utils/deviceCapabilities';
 import type { AIScreen } from './shared/types';
 import { estimateConversationTokens, getContextWindowSize, getContextUsagePercent } from '../../utils/tokenCounter';
+import { useStorageSummary } from '../../hooks/useStorageSummary';
 
 interface AISettingsProps {
   currentScreen: AIScreen;
@@ -248,15 +251,6 @@ export const AISettings: React.FC<AISettingsProps> = ({
               effectiveMode={effectiveMode}
               classifiedTheme={classifiedTheme}
             />
-            <SettingsNavRow
-              icon="file-tray"
-              label={theme.isTerminal ? 'Storage_Management' : 'Storage Management'}
-              sublabel={theme.isTerminal ? 'MODEL_FILES' : 'Manage downloads'}
-              onPress={() => onNavigate('storageManagement')}
-              theme={theme}
-              effectiveMode={effectiveMode}
-              classifiedTheme={classifiedTheme}
-            />
           </View>
         </ScrollView>
       </View>
@@ -265,6 +259,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
 
   const renderPerformanceModesScreen = () => {
     const { balancedUpgradeOffered } = useChatStore.getState();
+    const storage = useStorageSummary();
 
     const isBalancedDownloading = currentlyDownloading === 'balanced';
     const isQualityDownloading = currentlyDownloading === 'quality';
@@ -684,6 +679,76 @@ export const AISettings: React.FC<AISettingsProps> = ({
               </TouchableOpacity>
             </>
           )}
+
+          {/* Storage Summary Footer */}
+          <View style={[styles.separator, { backgroundColor: theme.divider, marginVertical: 20 }]} />
+          <View style={[styles.infoSection, { paddingTop: 4 }]}>
+            <Text style={[styles.sectionHeader, { color: theme.text, fontFamily: theme.fontBody, fontSize: 16, fontWeight: '600', marginBottom: 12 }]}>
+              {theme.isTerminal ? 'STORAGE' : 'Storage'}
+            </Text>
+
+            {storage.loading ? (
+              <Text style={[styles.infoText, { color: theme.subtext, fontFamily: theme.fontBody }]}>
+                {theme.isTerminal ? 'LOADING_STORAGE_INFO' : 'Loading storage info'}...
+              </Text>
+            ) : (
+              <>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Text style={[styles.infoText, { color: theme.subtext, fontFamily: theme.fontBody }]}>
+                    {theme.isTerminal ? 'AI_MODELS' : 'AI Models'}:
+                  </Text>
+                  <Text style={[styles.infoText, { color: theme.text, fontFamily: theme.fontBody, fontWeight: '600' }]}>
+                    {storage.modelsUsedFormatted}
+                  </Text>
+                </View>
+
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <Text style={[styles.infoText, { color: theme.subtext, fontFamily: theme.fontBody }]}>
+                    {theme.isTerminal ? 'DEVICE_FREE' : 'Device Free'}:
+                  </Text>
+                  <Text style={[styles.infoText, { color: theme.text, fontFamily: theme.fontBody, fontWeight: '600' }]}>
+                    {storage.deviceFreeFormatted}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[
+                    styles.upgradeBtn,
+                    { backgroundColor: 'transparent', borderWidth: 1, borderColor: theme.divider, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+                  ]}
+                  onPress={async () => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+                    try {
+                      if (Platform.OS === 'ios') {
+                        await Linking.openSettings();
+                      } else {
+                        // Android
+                        await IntentLauncher.startActivityAsync(
+                          IntentLauncher.ActivityAction.MANAGE_APP_ALL_FILES_ACCESS_PERMISSION
+                        );
+                      }
+                    } catch (error) {
+                      if (__DEV__) {
+                        console.error('Failed to open storage settings:', error);
+                      }
+                      Alert.alert(
+                        theme.isTerminal ? 'ERROR' : 'Error',
+                        theme.isTerminal
+                          ? 'FAILED_TO_OPEN_SETTINGS'
+                          : 'Failed to open storage settings'
+                      );
+                    }
+                  }}
+                >
+                  <Ionicons name="settings-outline" size={18} color={theme.accent} />
+                  <Text style={[styles.upgradeBtnText, { color: theme.text, fontFamily: theme.fontBody }]}>
+                    {theme.isTerminal ? 'OPEN_STORAGE_SETTINGS' : 'Open Storage Settings'}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
         </ScrollView>
       </View>
     );
@@ -1034,31 +1099,6 @@ export const AISettings: React.FC<AISettingsProps> = ({
     </View>
   );
 
-  const renderStorageManagementScreen = () => (
-    <View style={{ flex: 1 }}>
-      <SettingsSubHeader
-        title={theme.isTerminal ? 'Storage_Management' : 'Storage Management'}
-        onBack={onGoBack}
-        theme={theme}
-      />
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={[styles.sectionTitle, { color: theme.text, fontFamily: theme.fontBody }]}>
-          {theme.isTerminal ? 'DOWNLOADED_MODELS' : 'Downloaded Performance Modes'}
-        </Text>
-        <Text
-          style={[
-            styles.explainerText,
-            { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 8, marginBottom: 16 },
-          ]}
-        >
-          {theme.isTerminal
-            ? 'MODELS_STORED_ON_DEVICE'
-            : 'Models are stored on your device for offline use'}
-        </Text>
-      </ScrollView>
-    </View>
-  );
-
   const renderAdvancedPerformanceScreen = () => (
     <View style={{ flex: 1 }}>
       <SettingsSubHeader
@@ -1081,7 +1121,6 @@ export const AISettings: React.FC<AISettingsProps> = ({
   if (currentScreen === 'ai') return renderAIScreen();
   if (currentScreen === 'performanceModes') return renderPerformanceModesScreen();
   if (currentScreen === 'conversationMemory') return renderConversationMemoryScreen();
-  if (currentScreen === 'storageManagement') return renderStorageManagementScreen();
   if (currentScreen === 'advancedPerformance') return renderAdvancedPerformanceScreen();
 
   return null;
