@@ -806,9 +806,27 @@ export const AISettings: React.FC<AISettingsProps> = ({
               {/* Stats */}
               <Text style={[styles.memorySubtext, { color: theme.subtext, fontFamily: theme.fontBody }]}>
                 {theme.isTerminal
-                  ? `TOKENS: ${currentTokens.toLocaleString()} / ${contextWindow.toLocaleString()} • MESSAGES: ${messageCount} (${userMessageCount} USER)`
+                  ? `CONVERSATION: ${currentTokens.toLocaleString()} / ${contextWindow.toLocaleString()} TOKENS • ${messageCount} MESSAGES (${userMessageCount} EXCHANGES)`
                   : `${currentTokens.toLocaleString()} / ${contextWindow.toLocaleString()} tokens • ${messageCount} messages (${userMessageCount} exchanges)`}
               </Text>
+
+              {/* Estimated remaining capacity */}
+              {(() => {
+                const avgTokensPerExchange = userMessageCount > 0 ? currentTokens / userMessageCount : 100;
+                const remainingTokens = contextWindow - currentTokens;
+                const remainingExchanges = Math.floor(remainingTokens / avgTokensPerExchange);
+
+                if (remainingExchanges > 0 && remainingExchanges < 50) {
+                  return (
+                    <Text style={[styles.memorySubtext, { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 6, fontSize: 13 }]}>
+                      {theme.isTerminal
+                        ? `EST_${remainingExchanges}_MORE_EXCHANGES_UNTIL_${subscriptionTier === 'FREE' ? 'SLIDING_WINDOW' : 'AUTO_SUMMARY'}`
+                        : `~${remainingExchanges} more exchange${remainingExchanges === 1 ? '' : 's'} until ${subscriptionTier === 'FREE' ? 'sliding window' : 'auto-summarization'}`}
+                    </Text>
+                  );
+                }
+                return null;
+              })()}
 
               {/* Tier-specific messaging */}
               {subscriptionTier === 'FREE' ? (
@@ -816,8 +834,8 @@ export const AISettings: React.FC<AISettingsProps> = ({
                   <View style={{ marginTop: 12, padding: 10, backgroundColor: theme.bg, borderRadius: 8 }}>
                     <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 13, lineHeight: 18 }}>
                       {theme.isTerminal
-                        ? 'FREE_TIER_SLIDING_WINDOW_AI_FORGETS_OLD_MESSAGES_AS_NEW_ONES_ARRIVE'
-                        : 'AI forgets old messages as new ones come in (sliding window). Upgrade to Pro for extended memory.'}
+                        ? 'FREE_TIER_RECENT_MESSAGES_REMEMBERED_OLDEST_FORGOTTEN_AS_NEW_ARRIVE'
+                        : 'Free tier: Recent messages are remembered. Oldest messages are forgotten as new ones arrive. Upgrade to Pro for 4x more memory with auto-summarization.'}
                     </Text>
                   </View>
                   {/* Paywall CTA for Free users */}
@@ -847,16 +865,16 @@ export const AISettings: React.FC<AISettingsProps> = ({
                     <View style={{ marginTop: 12, padding: 10, backgroundColor: theme.bg, borderRadius: 8 }}>
                       <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 13, lineHeight: 18 }}>
                         {theme.isTerminal
-                          ? 'PRO_AUTO_SUMMARIZATION_TRIGGERS_AT_80_PERCENT_OLDER_MESSAGES_COMPRESSED'
-                          : '✨ Pro: Approaching capacity. Older messages will be automatically summarized to maintain performance.'}
+                          ? 'PRO_APPROACHING_CAPACITY_OLDER_MESSAGES_COMPRESSED_TO_SUMMARIES_KEY_CONTEXT_PRESERVED'
+                          : '✨ Pro: Approaching capacity. Older messages will be compressed into brief summaries, preserving key context while making room for new conversation.'}
                       </Text>
                     </View>
                   ) : (
                     <View style={{ marginTop: 12, padding: 10, backgroundColor: theme.bg, borderRadius: 8 }}>
                       <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 13, lineHeight: 18 }}>
                         {theme.isTerminal
-                          ? 'PRO_FULL_CONTEXT_AVAILABLE_AUTO_SUMMARIZATION_AT_80_PERCENT'
-                          : '✨ Pro: Full context available. Auto-summarization triggers at 80% capacity.'}
+                          ? 'PRO_4X_MORE_MEMORY_THAN_FREE_AUTO_SUMMARIZATION_AT_80_PERCENT'
+                          : '✨ Pro: 4x more memory than Free. When you reach 80% capacity, older messages are auto-summarized instead of forgotten.'}
                       </Text>
                     </View>
                   )}
@@ -907,109 +925,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
           );
         })()}
 
-        <Text style={[styles.sectionTitle, { color: theme.text, fontFamily: theme.fontBody, marginTop: 24 }]}>
-          {theme.isTerminal ? 'HOW_AI_MEMORY_WORKS' : 'How AI Memory Works'}
-        </Text>
-
-        {/* Efficient Mode */}
-        <View style={[styles.memoryCard, { backgroundColor: theme.card, marginTop: 20 }]}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Ionicons name="flash" size={20} color={theme.accent} />
-            <Text
-              style={[
-                styles.memoryTitle,
-                { color: theme.text, fontFamily: theme.fontBody, marginLeft: 8 },
-              ]}
-            >
-              Efficient Mode
-            </Text>
-          </View>
-          <Text
-            style={[
-              styles.memorySubtext,
-              { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 4 },
-            ]}
-          >
-            Context: 8K tokens
-          </Text>
-          <Text
-            style={[
-              styles.memoryDesc,
-              { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 4 },
-            ]}
-          >
-            {subscriptionTier === 'FREE'
-              ? 'Free: Limited context (20% of window) • Best for quick questions'
-              : 'Pro: Extended context (80% of window) • Best for quick questions'}
-          </Text>
-        </View>
-
-        {/* Balanced Mode */}
-        <View style={[styles.memoryCard, { backgroundColor: theme.card, marginTop: 12 }]}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Ionicons name="swap-horizontal-outline" size={20} color={theme.accent} />
-            <Text
-              style={[
-                styles.memoryTitle,
-                { color: theme.text, fontFamily: theme.fontBody, marginLeft: 8 },
-              ]}
-            >
-              Balanced Mode {subscriptionTier === 'FREE' && '(Pro)'}
-            </Text>
-          </View>
-          <Text
-            style={[
-              styles.memorySubtext,
-              { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 4 },
-            ]}
-          >
-            Context: 8K tokens • Better AI model (3B)
-          </Text>
-          <Text
-            style={[
-              styles.memoryDesc,
-              { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 4 },
-            ]}
-          >
-            {subscriptionTier === 'FREE'
-              ? 'Pro-only: Extended context (80% of window) • Smarter responses than Efficient'
-              : 'Pro: Extended context (80% of window) with summarization • Smarter responses than Efficient'}
-          </Text>
-        </View>
-
-        {/* Quality Mode */}
-        <View style={[styles.memoryCard, { backgroundColor: theme.card, marginTop: 12 }]}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Ionicons name="trophy" size={20} color={theme.accent} />
-            <Text
-              style={[
-                styles.memoryTitle,
-                { color: theme.text, fontFamily: theme.fontBody, marginLeft: 8 },
-              ]}
-            >
-              Quality Mode {subscriptionTier === 'FREE' && '(Pro)'}
-            </Text>
-          </View>
-          <Text
-            style={[
-              styles.memorySubtext,
-              { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 4 },
-            ]}
-          >
-            Context: 8K tokens • Best AI model (8B)
-          </Text>
-          <Text
-            style={[
-              styles.memoryDesc,
-              { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 4 },
-            ]}
-          >
-            {subscriptionTier === 'FREE'
-              ? 'Pro-only: Extended context (80% of window) • Highest intelligence'
-              : 'Pro: Extended context (80% of window) with summarization • Highest intelligence'}
-          </Text>
-        </View>
-
+        {/* Simplified Memory Explanation */}
         <View style={[styles.separator, { backgroundColor: theme.divider, marginVertical: 24 }]} />
 
         <Text
@@ -1018,7 +934,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
             { color: theme.text, fontFamily: theme.fontBody, fontSize: 16, fontWeight: '600' },
           ]}
         >
-          {theme.isTerminal ? 'MEMORY_EXPLAINED' : 'Memory Explained'}
+          {theme.isTerminal ? 'HOW_MEMORY_WORKS' : 'How Memory Works'}
         </Text>
         <Text
           style={[
@@ -1026,44 +942,22 @@ export const AISettings: React.FC<AISettingsProps> = ({
             { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 12, lineHeight: 22 },
           ]}
         >
-          <Text style={{ fontWeight: '600' }}>Free tier:</Text> AI uses 20% of the context window for conversation history. Recent exchanges are prioritized; older messages slide out as new ones arrive (sliding window). This keeps the app fast and lightweight.
-          {'\n\n'}
-          <Text style={{ fontWeight: '600' }}>Pro tier:</Text> AI uses 80% of the context window for conversation history (4x more than Free). When context reaches 80% capacity, older messages are automatically summarized (not deleted) to maintain efficiency.
-          {'\n\n'}
-          <Text style={{ fontWeight: '600' }}>Your control:</Text> All messages are AES-256 encrypted on your device until you clear them. Use "Clear History" or Panic Wipe to securely delete conversations.
+          {theme.isTerminal ? (
+            <>
+              FREE_TIER_RECENT_MESSAGES_REMEMBERED_OLDEST_FORGOTTEN_AS_NEW_ARRIVE{'\n\n'}
+              PRO_TIER_4X_MORE_MEMORY_OLDER_MESSAGES_SUMMARIZED_NOT_FORGOTTEN{'\n\n'}
+              ALL_MESSAGES_AES256_ENCRYPTED_UNTIL_YOU_DELETE
+            </>
+          ) : (
+            <>
+              <Text style={{ fontWeight: '600' }}>Free:</Text> Recent messages are remembered. Oldest messages are forgotten as new ones arrive.
+              {'\n\n'}
+              <Text style={{ fontWeight: '600' }}>Pro:</Text> 4x more memory. When capacity is reached, older messages are summarized instead of forgotten.
+              {'\n\n'}
+              <Text style={{ fontWeight: '600' }}>Your control:</Text> All messages are encrypted on your device. Use "Clear History" or Panic Wipe to securely delete.
+            </>
+          )}
         </Text>
-
-        <View
-          style={{
-            backgroundColor: theme.card,
-            marginTop: 20,
-            padding: 16,
-            borderRadius: 12,
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-            <Ionicons
-              name="information-circle"
-              size={20}
-              color={theme.accent}
-              style={{ marginRight: 10, marginTop: 2 }}
-            />
-            <Text
-              style={{
-                color: theme.text,
-                fontFamily: theme.fontBody,
-                flex: 1,
-                lineHeight: 20,
-                fontSize: 14,
-              }}
-            >
-              <Text style={{ fontWeight: '600' }}>Note: </Text>
-              {theme.isTerminal
-                ? 'CONTEXT_WINDOW_IS_MODEL_LIMIT_NOT_DEVICE_LIMIT'
-                : 'Context window size is determined by the AI model architecture, not your device capabilities.'}
-            </Text>
-          </View>
-        </View>
       </ScrollView>
     </View>
   );
