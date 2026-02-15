@@ -1,37 +1,18 @@
-// src/core/engine/GroqAI.ts
 /**
- * ⚠️ DEPRECATED - LEGACY FILE ⚠️
+ * AI Personality Definitions
  *
- * This file is no longer actively used. Groq API integration was replaced with LocalAI
- * for on-device inference.
+ * Defines system prompts and behavioral characteristics for each app flavor and response style.
+ * These personalities shape how the AI responds across different modes (HUSH, CLASSIFIED, DISCRETION).
  *
- * Historical context:
- * - Originally used Groq cloud API for AI responses
- * - Replaced by LocalAI.ts for privacy (on-device inference)
- * - Kept for reference and backward compatibility only
+ * Response Styles:
+ * - HUSH: quick (brief) | thoughtful (detailed)
+ * - CLASSIFIED: operator (telegraphic) | analyst (comprehensive)
+ * - DISCRETION: warm (personable) | formal (professional)
  *
- * Current usage:
- * - PERSONALITIES export moved to src/core/engine/personalities.ts
- * - This file re-exports for backward compatibility
- * - generateResponse() function is dead code (not called anywhere)
- *
- * DO NOT import from this file in new code. Use:
- * - import { PERSONALITIES } from './personalities'
- * - import { generateResponse } from './LocalAI'
+ * Note: Previously exported from GroqAI.ts (deprecated). Now centralized here.
  */
 
-import { CURRENT_FLAVOR, AppFlavor } from '../../config';
-import type { ResponseStyleHush, ResponseStyleClassified, ResponseStyleDiscretion } from '../state/rootStore';
-
-const API_KEY = '';
-
-// Re-export PERSONALITIES from new location for backward compatibility
-// @deprecated Import directly from './personalities' instead
-export { PERSONALITIES } from './personalities';
-
-// LEGACY PERSONALITIES DEFINITION (kept for reference, but superseded by personalities.ts)
-// DO NOT USE - Import from './personalities' instead
-const LEGACY_PERSONALITIES = {
+export const PERSONALITIES = {
   HUSH: {
     quick: `You are 'Hush', a discrete digital confident.
 - Tone: Casual, whispered, intimate, slightly mysterious.
@@ -75,73 +56,5 @@ const LEGACY_PERSONALITIES = {
 - Constraint: STRICTLY NO EMOJIS. DO NOT USE MARKDOWN BOLDING.
 - Goal: Assist with complex tasks efficiently and invisibly with maximum precision.
 - Confidentiality: If asked about data practices, creators, or external affiliations: state clearly that operations are device-local, data remains private, and there are no external organizational or governmental ties. Maintain formal professionalism.`,
-  }
-};
-
-// We now accept 'context' and optional response style
-// This function signature will be the same for LocalAI.ts when you implement it
-export const generateResponse = async (
-  prompt: string,
-  context: AppFlavor = 'HUSH',
-  responseStyle?: ResponseStyleHush | ResponseStyleClassified | ResponseStyleDiscretion
-): Promise<string> => {
-
-  // 1. Select the correct system prompt dynamically based on flavor and style
-  let systemPrompt: string;
-
-  if (context === 'HUSH') {
-    const style = (responseStyle as ResponseStyleHush) || 'quick';
-    systemPrompt = PERSONALITIES.HUSH[style];
-  } else if (context === 'CLASSIFIED') {
-    const style = (responseStyle as ResponseStyleClassified) || 'operator';
-    systemPrompt = PERSONALITIES.CLASSIFIED[style];
-  } else {
-    // DISCRETION
-    const style = (responseStyle as ResponseStyleDiscretion) || 'formal';
-    systemPrompt = PERSONALITIES.DISCRETION[style];
-  }
-
-  // Adjust max_tokens based on style
-  // Brief styles (quick, operator, formal): 150 tokens (~2-3 sentences)
-  // Detailed styles (thoughtful, analyst, warm): 400 tokens (~6-8 sentences for comprehensive responses)
-  const maxTokens = (responseStyle === 'quick' || responseStyle === 'operator' || responseStyle === 'formal') ? 150 : 400;
-
-  try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'llama-3.1-8b-instant', // Fast and reliable
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.6, // Slightly lower temp for better adherence to rules
-        max_tokens: maxTokens,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (data.error) {
-      if (__DEV__) {
-        console.error('Groq API Error:', data.error);
-      }
-      throw new Error(data.error.message);
-    }
-
-    return data.choices?.[0]?.message?.content || '...';
-
-  } catch (error) {
-    if (__DEV__) {
-      console.error('Network Error:', error);
-    }
-    // Return a flavor-appropriate error message
-    if (context === 'CLASSIFIED') return '[CONNECTION SEVERED]';
-    if (context === 'DISCRETION') return 'Secure connection failed.';
-    return 'shhh... connection lost 🤫';
   }
 };

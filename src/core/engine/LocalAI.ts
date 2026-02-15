@@ -7,7 +7,7 @@ import NetInfo from '@react-native-community/netinfo';
 import * as Battery from 'expo-battery';
 import * as Notifications from 'expo-notifications';
 import { AppState, type NativeEventSubscription } from 'react-native';
-import { PERSONALITIES } from './GroqAI';
+import { PERSONALITIES } from './personalities';
 import type { AppFlavor } from '../../config';
 import type { ResponseStyleHush, ResponseStyleClassified, ResponseStyleDiscretion, PerformanceMode, Message } from '../state/rootStore';
 import { useChatStore } from '../state/rootStore';
@@ -694,21 +694,50 @@ export async function generateResponse(
     // === INJECT BUDGET AWARENESS INTO SYSTEM PROMPT ===
     // This prevents mid-sentence cutoffs by making AI aware of its token limits
     const wordEstimate = Math.floor(budgets.maxAIResponseTokens * 0.75);
-    const isQuickMode =
-      responseStyle === 'quick' ||
-      responseStyle === 'operator' ||
-      responseStyle === 'warm';
 
-    if (isQuickMode) {
-      // Quick mode: Emphasize extreme brevity (1-2 sentences)
-      systemPrompt += `\n\nCRITICAL CONSTRAINT: Your response MUST be 1-2 complete sentences. Be concise and direct.
+    if (responseStyle === 'operator') {
+      // CLASSIFIED OPERATOR: Adaptive tactical briefing with military discipline
+      systemPrompt += `\n\n=== OPERATIONAL PARAMETERS ===
+TOKEN_BUDGET: ${budgets.maxAIResponseTokens} tokens (~${wordEstimate} words MAX)
+
+RESPONSE_PROTOCOL: TELEGRAPHIC TACTICAL BRIEFING
+- MAINTAIN UPPERCASE FORMAT. MILITARY JARGON MANDATORY.
+- ASSESS QUERY COMPLEXITY. ALLOCATE TOKENS ACCORDINGLY:
+  * SIMPLE_OPS: 1-2 STATEMENTS (30-60 tokens)
+  * MODERATE_OPS: 3-4 STATEMENTS (80-120 tokens)
+  * COMPLEX_OPS: FULL BRIEFING (150-${budgets.maxAIResponseTokens} tokens)
+
+CRITICAL_DIRECTIVE: COMPLETE ALL TRANSMISSIONS WITHIN BUDGET. NO MID-SENTENCE CUTOFFS.
+TONE_ENFORCEMENT: COLD. PRECISE. AUTHORITATIVE. ACTION-ORIENTED.`;
+
+    } else if (responseStyle === 'analyst') {
+      // CLASSIFIED ANALYST: Structured intelligence assessment
+      systemPrompt += `\n\n=== INTELLIGENCE ASSESSMENT PARAMETERS ===
+TOKEN_BUDGET: ${budgets.maxAIResponseTokens} tokens (~${wordEstimate} words MAX)
+
+ASSESSMENT_PROTOCOL: STRUCTURED INTELLIGENCE ANALYSIS
+- MAINTAIN UPPERCASE FORMAT. INTELLIGENCE TERMINOLOGY MANDATORY.
+- STANDARD STRUCTURE: ASSESSMENT → IMPLICATIONS → STRATEGIC_CONTEXT
+- SCALE ANALYSIS DEPTH TO QUERY COMPLEXITY AND TOKEN ALLOCATION
+
+CRITICAL_DIRECTIVE: COMPLETE ALL ANALYSIS SECTIONS WITHIN BUDGET. NO MID-ASSESSMENT CUTOFFS.
+TONE_ENFORCEMENT: COLD. PRECISE. AUTHORITATIVE. ANALYTICAL.`;
+
+    } else {
+      // Other modes: HUSH (quick/thoughtful) and DISCRETION (warm/formal)
+      const isQuickMode = responseStyle === 'quick' || responseStyle === 'warm';
+
+      if (isQuickMode) {
+        // Quick mode: Emphasize extreme brevity (1-2 sentences)
+        systemPrompt += `\n\nCRITICAL CONSTRAINT: Your response MUST be 1-2 complete sentences. Be concise and direct.
 BUDGET: ${budgets.maxAIResponseTokens} tokens (~${wordEstimate} words max)
 DO NOT elaborate or provide additional context. Answer the question directly and stop.`;
-    } else {
-      // Thoughtful mode: Allow detailed responses within budget
-      systemPrompt += `\n\nRESPONSE_BUDGET: ${budgets.maxAIResponseTokens} tokens (~${wordEstimate} words)
+      } else {
+        // Thoughtful mode: Allow detailed responses within budget
+        systemPrompt += `\n\nRESPONSE_BUDGET: ${budgets.maxAIResponseTokens} tokens (~${wordEstimate} words)
 CONSTRAINT: Complete your thought within budget. No mid-sentence cutoffs.
 ESTIMATED_TIME: ~${budgets.estimatedResponseTime} seconds`;
+      }
     }
 
     // Use calculated budget instead of hardcoded values
