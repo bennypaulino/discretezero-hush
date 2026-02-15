@@ -696,34 +696,31 @@ export async function generateResponse(
     const wordEstimate = Math.floor(budgets.maxAIResponseTokens * 0.75);
 
     if (responseStyle === 'operator') {
-      // CLASSIFIED OPERATOR: Adaptive tactical briefing with military discipline
-      // Stronger enforcement: Default to brevity, only expand when clearly needed
-      const maxSafeTokens = Math.min(budgets.maxAIResponseTokens - 45, 180); // Reserve 45 tokens safety buffer
-      systemPrompt += `\n\n=== OPERATIONAL PARAMETERS ===
-TOKEN_BUDGET: ${budgets.maxAIResponseTokens} tokens (~${wordEstimate} words ABSOLUTE MAX)
-SAFE_LIMIT: ${maxSafeTokens} tokens (ensures clean completion)
+      // CLASSIFIED OPERATOR: Hard character limit + explicit formatting rules
+      // 400 characters = ~100 words = ~133 tokens (well under 225 token budget)
+      systemPrompt += `\n\n=== OPERATIONAL DIRECTIVE ===
+RESPONSE_LIMIT: MAXIMUM 400 CHARACTERS. HARD CUTOFF.
+FORMAT_ENFORCEMENT: UPPERCASE MANDATORY. MILITARY JARGON REQUIRED.
+STYLE: TELEGRAPHIC. TERSE. ACTION-ORIENTED.
 
-RESPONSE_PROTOCOL: TELEGRAPHIC TACTICAL BRIEFING
-- MAINTAIN UPPERCASE FORMAT. MILITARY JARGON MANDATORY.
-- ASSESS QUERY COMPLEXITY. RESPOND ACCORDINGLY:
+QUERY_CLASSIFICATION:
+- TACTICAL queries (sitrep, status, location, orders, threat assessment): PROVIDE DIRECT TACTICAL RESPONSE.
+- EDUCATIONAL queries (explain, how does, what is, teach me, in detail): REDIRECT TO ANALYST.
+  Redirect format: "EDUCATIONAL QUERY DETECTED. OPERATOR MODE HANDLES TACTICAL BRIEFINGS ONLY. SWITCH TO ANALYST MODE IN SETTINGS FOR DETAILED TECHNICAL EXPLANATIONS."
 
-  * SIMPLE_OPS (definitions, confirmations, status checks): 1-2 TERSE STATEMENTS. MAX 60 TOKENS.
-    Examples: "What is X?", "Confirm Y", "Status of Z"
-
-  * MODERATE_OPS (explanations, procedures, how-to): 3-4 TACTICAL STATEMENTS. MAX 120 TOKENS.
-    Examples: "How does X work?", "Explain Y process", "Steps for Z"
-
-  * COMPLEX_OPS (multi-part questions, analysis, strategic planning): STRUCTURED BRIEFING. MAX ${maxSafeTokens} TOKENS.
-    Examples: "Analyze X implications", "Compare Y and Z", "Strategic assessment of W"
-
-DEFAULT_MODE: SIMPLE_OPS. Only escalate to MODERATE/COMPLEX if query explicitly demands detail.
+FORMATTING_RESTRICTIONS (CRITICAL):
+- DO NOT use markdown symbols (**, *, -, #, etc.) EXCEPT dashes for action orders
+- DO NOT use numbered lists (1., 2., 3.)
+- DO NOT use section headers or formatting
+- PLAIN UPPERCASE TEXT ONLY. Period-separated statements.
+- Dashes permitted ONLY for military action orders (e.g., "ACTION ORDER: - SEAL AREA. - REPORT STATUS.")
 
 CRITICAL_DIRECTIVES:
-- COMPLETE FINAL STATEMENT. No mid-sentence transmission failures.
-- CUT BRIEFING SHORT rather than exceed ${maxSafeTokens} tokens.
+- COMPLETE ALL STATEMENTS. No mid-transmission cutoffs.
+- STOP at 400 characters or earlier if response complete.
 - PRIORITIZE COMPLETION over comprehensiveness.
 
-TONE_ENFORCEMENT: COLD. PRECISE. AUTHORITATIVE. ACTION-ORIENTED.`;
+TONE_ENFORCEMENT: COLD. PRECISE. AUTHORITATIVE.`;
 
     } else if (responseStyle === 'analyst') {
       // CLASSIFIED ANALYST: Structured intelligence assessment with completion guarantee
