@@ -97,7 +97,8 @@ export const DiscretionScreen = () => {
   const privacyBlurEnabled = useChatStore((state) => state.privacyBlurEnabled);
   const subscriptionTier = useChatStore((state) => state.subscriptionTier);
   const streamingMessageId = useChatStore((state) => state.streamingMessageId);
-  // DON'T subscribe to streamingText - access via getState() in renderItem to avoid re-renders
+  const streamingText = useChatStore((state) => state.streamingText);
+  // Subscribe to streamingText to show tokens as they arrive during AI generation
 
   const modeDownloadState = useChatStore((state) => state.modeDownloadState);
 
@@ -234,10 +235,8 @@ export const DiscretionScreen = () => {
   }), []);
 
   const renderItem = useCallback(({ item }: { item: any }) => {
-    // STREAMING (P1.11 Phase 0): Use streaming text for messages being generated
-    // PERFORMANCE FIX: Access streamingText via getState() to avoid subscribing to every token update
-    const currentStreamingText = useChatStore.getState().streamingText;
-    const displayText = item.id === streamingMessageId ? currentStreamingText : item.text;
+    // STREAMING (P1.11 Phase 0): Use subscribed streamingText to show tokens as they arrive
+    const displayText = item.id === streamingMessageId ? streamingText : item.text;
     const cleanContent = stripEmojis(displayText);
     const isUser = item.role === 'user';
 
@@ -279,7 +278,7 @@ export const DiscretionScreen = () => {
         </View>
       </PrivacyBlock>
     );
-  }, [privacyBlurEnabled, handleGlobalDoubleTap, THEME.userBubble, THEME.accent, appTheme.colors.primary, streamingMessageId]);
+  }, [streamingMessageId, streamingText, privacyBlurEnabled, handleGlobalDoubleTap, THEME.userBubble, THEME.accent, appTheme.colors.primary]);
 
   return (
     <View
