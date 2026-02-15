@@ -37,7 +37,7 @@ const MODEL_CONFIGS: Record<PerformanceMode, ModelConfig> = {
   },
   balanced: {
     fileName: 'Llama-3.2-3B-Instruct-Q4_K_M.gguf',
-    contextSize: 131072,
+    contextSize: 8192, // Same as efficient for memory safety
     batchSize: 512,
     gpuLayers: -1,
     downloadUrl: 'https://huggingface.co/lmstudio-community/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf',
@@ -45,7 +45,7 @@ const MODEL_CONFIGS: Record<PerformanceMode, ModelConfig> = {
   },
   quality: {
     fileName: 'Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf',
-    contextSize: 131072,
+    contextSize: 8192, // Same as efficient for memory safety
     batchSize: 512,
     gpuLayers: -1,
     downloadUrl: 'https://huggingface.co/lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf',
@@ -414,6 +414,17 @@ export async function initializeModel(mode: PerformanceMode): Promise<void> {
     if (__DEV__) {
       console.error('[LocalAI] Model initialization failed:', error);
     }
+
+    // SAFETY: Auto-fallback to efficient mode if balanced/quality fail (likely OOM)
+    if (mode !== 'efficient' && (error instanceof Error &&
+        (error.message.includes('memory') || error.message.includes('OOM')))) {
+      if (__DEV__) {
+        console.warn(`[LocalAI] ${mode} mode failed (likely OOM), auto-switching to efficient`);
+      }
+      // Switch user to efficient mode to prevent app from being unusable
+      useChatStore.getState().setActiveMode('efficient');
+    }
+
     throw error;
   }
 }
@@ -704,8 +715,9 @@ FORMAT_ENFORCEMENT: UPPERCASE MANDATORY. MILITARY JARGON REQUIRED.
 STYLE: TELEGRAPHIC. TERSE. ACTION-ORIENTED.
 
 QUERY_CLASSIFICATION:
-- TACTICAL queries (sitrep, status, location, orders, threat assessment): PROVIDE DIRECT TACTICAL RESPONSE.
-- EDUCATIONAL queries (explain, how does, what is, teach me, in detail): REDIRECT TO ANALYST.
+- TACTICAL queries (sitrep, status, location, orders, threat assessment, what/who/when/where): PROVIDE DIRECT TACTICAL RESPONSE.
+- GENERAL queries (greetings, simple questions, status checks): PROVIDE BRIEF TACTICAL ACKNOWLEDGMENT.
+- EDUCATIONAL queries (explain how, explain why, teach me, technical details, in-depth analysis): REDIRECT TO ANALYST.
   Redirect format: "EDUCATIONAL QUERY DETECTED. OPERATOR MODE HANDLES TACTICAL BRIEFINGS ONLY. SWITCH TO ANALYST MODE IN SETTINGS FOR DETAILED TECHNICAL EXPLANATIONS."
 
 FORMATTING_RESTRICTIONS (CRITICAL):
@@ -767,42 +779,68 @@ ESTIMATED_TIME: ~${budgets.estimatedResponseTime} seconds`;
     const maxTokens = budgets.maxAIResponseTokens;
 
     // === BUILD MULTI-TURN PROMPT WITH CONVERSATION HISTORY (P1.10) ===
-    // Using Gemma/Llama chat template format: <start_of_turn>{role}\n{text}<end_of_turn>\n
+    // Different models use different chat templates!
+    const isLlama = modelProfile.chatTemplate === 'llama'; // Llama 3.x format
+    const isGemma = modelProfile.chatTemplate === 'gemma'; // Gemma format
 
-    // 1. System prompt
-    let formattedPrompt = `<start_of_turn>system
-${systemPrompt}<end_of_turn>
-`;
+    let formattedPrompt = '';
+    let stopTokens: string[] = [];
 
-    // 2. Inject conversation summary if available (Pro users)
-    if (conversationSummary) {
-      formattedPrompt += `<start_of_turn>system
-[Previous conversation summary: ${conversationSummary}]<end_of_turn>
-`;
-      if (__DEV__) {
-        console.log('[LocalAI] Including conversation summary');
+    if (isLlama) {
+      // === LLAMA 3.x TEMPLATE ===
+      // Format: <|begin_of_text|><|start_header_id|>role<|end_header_id|>\n\ntext<|eot_id|>
+      formattedPrompt = '<|begin_of_text|>';
+
+      // 1. System prompt
+      formattedPrompt += `<|start_header_id|>system<|end_header_id|>\n\n${systemPrompt}<|eot_id|>`;
+
+      // 2. Inject conversation summary if available
+      if (conversationSummary) {
+        formattedPrompt += `<|start_header_id|>system<|end_header_id|>\n\n[Previous conversation summary: ${conversationSummary}]<|eot_id|>`;
       }
-    }
 
-    // 3. Inject conversation history (recent messages)
-    for (const msg of conversationHistory) {
-      if (msg.role === 'user') {
-        formattedPrompt += `<start_of_turn>user
-${msg.text}<end_of_turn>
-`;
-      } else if (msg.role === 'ai') {
-        formattedPrompt += `<start_of_turn>model
-${msg.text}<end_of_turn>
-`;
+      // 3. Inject conversation history
+      for (const msg of conversationHistory) {
+        if (msg.role === 'user') {
+          formattedPrompt += `<|start_header_id|>user<|end_header_id|>\n\n${msg.text}<|eot_id|>`;
+        } else if (msg.role === 'ai') {
+          formattedPrompt += `<|start_header_id|>assistant<|end_header_id|>\n\n${msg.text}<|eot_id|>`;
+        }
       }
-      // Skip system messages (they're UI alerts, not part of conversation)
-    }
 
-    // 4. Append current user message
-    formattedPrompt += `<start_of_turn>user
-${prompt}<end_of_turn>
-<start_of_turn>model
-`;
+      // 4. Append current user message
+      formattedPrompt += `<|start_header_id|>user<|end_header_id|>\n\n${prompt}<|eot_id|>`;
+      formattedPrompt += `<|start_header_id|>assistant<|end_header_id|>\n\n`;
+
+      stopTokens = ['<|eot_id|>', '<|end_of_text|>'];
+
+    } else {
+      // === GEMMA TEMPLATE (default) ===
+      // Format: <start_of_turn>role\ntext<end_of_turn>\n
+
+      // 1. System prompt
+      formattedPrompt = `<start_of_turn>system\n${systemPrompt}<end_of_turn>\n`;
+
+      // 2. Inject conversation summary if available
+      if (conversationSummary) {
+        formattedPrompt += `<start_of_turn>system\n[Previous conversation summary: ${conversationSummary}]<end_of_turn>\n`;
+      }
+
+      // 3. Inject conversation history
+      for (const msg of conversationHistory) {
+        if (msg.role === 'user') {
+          formattedPrompt += `<start_of_turn>user\n${msg.text}<end_of_turn>\n`;
+        } else if (msg.role === 'ai') {
+          formattedPrompt += `<start_of_turn>model\n${msg.text}<end_of_turn>\n`;
+        }
+      }
+
+      // 4. Append current user message
+      formattedPrompt += `<start_of_turn>user\n${prompt}<end_of_turn>\n`;
+      formattedPrompt += `<start_of_turn>model\n`;
+
+      stopTokens = ['<end_of_turn>', '<start_of_turn>'];
+    }
 
     if (__DEV__) {
       const estimatedTokens = estimateTokens(formattedPrompt);
@@ -824,8 +862,8 @@ ${prompt}<end_of_turn>
         top_p: 0.95,
         min_p: 0.05,
         penalty_repeat: 1.1,
-        // Stop tokens
-        stop: ['<end_of_turn>', '<start_of_turn>', '\n\n\n'],
+        // Stop tokens (model-specific)
+        stop: stopTokens,
       },
       (data) => {
         // STREAMING: Call token callback for real-time UI updates
@@ -847,11 +885,32 @@ ${prompt}<end_of_turn>
     // Extract the response text
     const responseText = result.text.trim();
 
-    // Clean up any remaining template artifacts
-    const cleanedResponse = responseText
-      .replace(/<end_of_turn>/g, '')
-      .replace(/<start_of_turn>/g, '')
-      .trim();
+    // Clean up any remaining template artifacts (model-specific)
+    let cleanedResponse = responseText;
+    if (isLlama) {
+      cleanedResponse = cleanedResponse
+        .replace(/<\|eot_id\|>/g, '')
+        .replace(/<\|end_of_text\|>/g, '')
+        .replace(/<\|start_header_id\|>.*?<\|end_header_id\|>/g, '')
+        .trim();
+
+      // Fix word concatenations ONLY in uppercase-heavy text (CLASSIFIED mode)
+      // Check if response is predominantly uppercase (>50% uppercase letters)
+      const uppercaseCount = (cleanedResponse.match(/[A-Z]/g) || []).length;
+      const lowercaseCount = (cleanedResponse.match(/[a-z]/g) || []).length;
+      const isUppercaseHeavy = uppercaseCount > lowercaseCount;
+
+      if (isUppercaseHeavy) {
+        // CLASSIFIED mode: Fix concatenations like "ORCLARIFY" → "OR CLARIFY"
+        // Only fixes ALL_CAPS words touching each other
+        cleanedResponse = cleanedResponse.replace(/([a-z])([A-Z])/g, '$1 $2');
+      }
+    } else {
+      cleanedResponse = cleanedResponse
+        .replace(/<end_of_turn>/g, '')
+        .replace(/<start_of_turn>/g, '')
+        .trim();
+    }
 
     return cleanedResponse || '...';
 
@@ -943,23 +1002,50 @@ export async function generateGameResponse(
       });
     }
 
-    // Build conversation context
-    let conversationContext = '';
-    for (const msg of conversationHistory) {
-      if (msg.role === 'user') {
-        conversationContext += `<start_of_turn>user\n${msg.text}<end_of_turn>\n`;
-      } else {
-        conversationContext += `<start_of_turn>model\n${msg.text}<end_of_turn>\n`;
-      }
-    }
+    // Detect chat template format
+    const isLlama = modelProfile.chatTemplate === 'llama';
+    let formattedPrompt = '';
+    let stopTokens: string[] = [];
 
-    // Format prompt with system, history, and new user message
-    const formattedPrompt = `<start_of_turn>system
-${systemPrompt}<end_of_turn>
-${conversationContext}<start_of_turn>user
-${userMessage}<end_of_turn>
-<start_of_turn>model
-`;
+    if (isLlama) {
+      // === LLAMA 3.x TEMPLATE ===
+      formattedPrompt = '<|begin_of_text|>';
+      formattedPrompt += `<|start_header_id|>system<|end_header_id|>\n\n${systemPrompt}<|eot_id|>`;
+
+      // Add conversation history
+      for (const msg of conversationHistory) {
+        if (msg.role === 'user') {
+          formattedPrompt += `<|start_header_id|>user<|end_header_id|>\n\n${msg.text}<|eot_id|>`;
+        } else {
+          formattedPrompt += `<|start_header_id|>assistant<|end_header_id|>\n\n${msg.text}<|eot_id|>`;
+        }
+      }
+
+      // Add current user message
+      formattedPrompt += `<|start_header_id|>user<|end_header_id|>\n\n${userMessage}<|eot_id|>`;
+      formattedPrompt += `<|start_header_id|>assistant<|end_header_id|>\n\n`;
+
+      stopTokens = ['<|eot_id|>', '<|end_of_text|>'];
+
+    } else {
+      // === GEMMA TEMPLATE ===
+      formattedPrompt = `<start_of_turn>system\n${systemPrompt}<end_of_turn>\n`;
+
+      // Add conversation history
+      for (const msg of conversationHistory) {
+        if (msg.role === 'user') {
+          formattedPrompt += `<start_of_turn>user\n${msg.text}<end_of_turn>\n`;
+        } else {
+          formattedPrompt += `<start_of_turn>model\n${msg.text}<end_of_turn>\n`;
+        }
+      }
+
+      // Add current user message
+      formattedPrompt += `<start_of_turn>user\n${userMessage}<end_of_turn>\n`;
+      formattedPrompt += `<start_of_turn>model\n`;
+
+      stopTokens = ['<end_of_turn>', '<start_of_turn>'];
+    }
 
     if (__DEV__) {
       console.log('[LocalAI] Generating game response...');
@@ -975,7 +1061,7 @@ ${userMessage}<end_of_turn>
         top_p: 0.95,
         min_p: 0.05,
         penalty_repeat: 1.1,
-        stop: ['<end_of_turn>', '<start_of_turn>', '\n\n\n'],
+        stop: stopTokens,
       },
       (data) => {
         // STREAMING: Call token callback for real-time UI updates
@@ -994,12 +1080,31 @@ ${userMessage}<end_of_turn>
       console.log('[LocalAI] Game response generated');
     }
 
-    // Extract and clean response
+    // Extract and clean response (model-specific)
     const responseText = result.text.trim();
-    const cleanedResponse = responseText
-      .replace(/<end_of_turn>/g, '')
-      .replace(/<start_of_turn>/g, '')
-      .trim();
+    let cleanedResponse = responseText;
+
+    if (isLlama) {
+      cleanedResponse = cleanedResponse
+        .replace(/<\|eot_id\|>/g, '')
+        .replace(/<\|end_of_text\|>/g, '')
+        .replace(/<\|start_header_id\|>.*?<\|end_header_id\|>/g, '')
+        .trim();
+
+      // Fix word concatenations ONLY in uppercase-heavy text
+      const uppercaseCount = (cleanedResponse.match(/[A-Z]/g) || []).length;
+      const lowercaseCount = (cleanedResponse.match(/[a-z]/g) || []).length;
+      const isUppercaseHeavy = uppercaseCount > lowercaseCount;
+
+      if (isUppercaseHeavy) {
+        cleanedResponse = cleanedResponse.replace(/([a-z])([A-Z])/g, '$1 $2');
+      }
+    } else {
+      cleanedResponse = cleanedResponse
+        .replace(/<end_of_turn>/g, '')
+        .replace(/<start_of_turn>/g, '')
+        .trim();
+    }
 
     return cleanedResponse || '[CONNECTION SEVERED]';
 
@@ -1093,8 +1198,15 @@ export async function warmUpModel(): Promise<void> {
 
     // Run a quick dummy inference to warm up the model
     if (llamaContext) {
+      const modelProfile = getModelProfile(activeMode);
+      const isLlama = modelProfile.chatTemplate === 'llama';
+
+      const warmupPrompt = isLlama
+        ? '<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\nYou are a helpful assistant.<|eot_id|><|start_header_id|>user<|end_header_id|>\n\nHi<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n'
+        : '<start_of_turn>system\nYou are a helpful assistant.<end_of_turn>\n<start_of_turn>user\nHi<end_of_turn>\n<start_of_turn>model\n';
+
       await llamaContext.completion({
-        prompt: '<start_of_turn>system\nYou are a helpful assistant.<end_of_turn>\n<start_of_turn>user\nHi<end_of_turn>\n<start_of_turn>model\n',
+        prompt: warmupPrompt,
         n_predict: 5,
         temperature: 0.6,
       });

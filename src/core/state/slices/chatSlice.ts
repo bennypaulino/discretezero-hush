@@ -99,6 +99,10 @@ export interface ChatSlice {
   streamingTokenCount: number; // Number of tokens streamed so far
   placeholderTimeoutId: NodeJS.Timeout | null; // Timeout to clear stuck placeholders (15s)
 
+  // Throttling state (prevent "Maximum update depth exceeded")
+  _pendingTokens: string; // Tokens waiting to be flushed to streamingText
+  _throttleTimeoutId: NodeJS.Timeout | null; // Timeout for batched updates
+
   // --- ACTIONS ---
   toggleFlavor: () => void;
   setFlavor: (flavor: AppFlavor) => void;
@@ -349,6 +353,10 @@ Summary:`;
   streamingText: '',
   streamingTokenCount: 0,
   placeholderTimeoutId: null,
+
+  // Throttling state
+  _pendingTokens: '',
+  _throttleTimeoutId: null,
 
   // --- ACTIONS ---
   toggleFlavor: () => {
@@ -766,6 +774,8 @@ Summary:`;
               streamingMessageId: null,
               streamingText: '',
               streamingTokenCount: 0,
+              _pendingTokens: '',
+              _throttleTimeoutId: null,
             }));
           } else if (capturedFlavor === 'CLASSIFIED') {
             set((s) => ({
@@ -776,6 +786,8 @@ Summary:`;
               streamingMessageId: null,
               streamingText: '',
               streamingTokenCount: 0,
+              _pendingTokens: '',
+              _throttleTimeoutId: null,
             }));
           }
         } else {
@@ -786,6 +798,8 @@ Summary:`;
             streamingMessageId: null,
             streamingText: '',
             streamingTokenCount: 0,
+            _pendingTokens: '',
+            _throttleTimeoutId: null,
           }));
         }
 
@@ -983,17 +997,37 @@ Summary:`;
    * Append a token to the streaming text
    * Called for each token received from AI
    *
-   * PERFORMANCE FIX: Use direct set() syntax instead of function-based set()
-   * Function-based set((state) => ({ ... })) creates NEW references for ALL state properties,
-   * triggering ALL selective subscriptions to re-check (even if values unchanged).
-   * Direct set({ ... }) only updates specified property references.
+   * THROTTLED VERSION: Batches tokens and updates UI max every 50ms (20fps)
+   * Prevents "Maximum update depth exceeded" React error from too-frequent setState calls.
+   * Tokens accumulate in _pendingTokens and flush periodically.
    */
   appendStreamingToken: (token: string) => {
     const state = get();
-    set({
-      streamingText: state.streamingText + token,
-      streamingTokenCount: state.streamingTokenCount + 1,
-    });
+
+    // Accumulate token in pending buffer
+    const newPendingTokens = state._pendingTokens + token;
+
+    // If no throttle timer exists, set one to flush after 50ms
+    if (!state._throttleTimeoutId) {
+      const timeoutId = setTimeout(() => {
+        const currentState = get();
+        // Flush all pending tokens at once
+        set({
+          streamingText: currentState.streamingText + currentState._pendingTokens,
+          streamingTokenCount: currentState.streamingTokenCount + currentState._pendingTokens.length,
+          _pendingTokens: '', // Clear pending buffer
+          _throttleTimeoutId: null, // Clear timeout reference
+        });
+      }, 50); // 50ms = 20 updates per second (smooth but not overwhelming)
+
+      set({
+        _pendingTokens: newPendingTokens,
+        _throttleTimeoutId: timeoutId,
+      });
+    } else {
+      // Throttle timer already running - just accumulate
+      set({ _pendingTokens: newPendingTokens });
+    }
   },
 
   /**
@@ -1001,17 +1035,28 @@ Summary:`;
    * Marks streaming as complete and clears streaming state
    */
   finishStreaming: () => {
-    // Clear placeholder timeout if it exists
     const currentState = get();
+
+    // Clear placeholder timeout if it exists
     if (currentState.placeholderTimeoutId) {
       clearTimeout(currentState.placeholderTimeoutId);
     }
 
+    // Clear throttle timeout if it exists
+    if (currentState._throttleTimeoutId) {
+      clearTimeout(currentState._throttleTimeoutId);
+    }
+
+    // CRITICAL: Flush any remaining pending tokens before clearing state
+    const finalText = currentState.streamingText + currentState._pendingTokens;
+
     set({
+      streamingText: finalText, // Include pending tokens
       streamingMessageId: null,
-      streamingText: '',
       streamingTokenCount: 0,
       placeholderTimeoutId: null,
+      _pendingTokens: '', // Clear pending buffer
+      _throttleTimeoutId: null, // Clear throttle timer
     });
   },
   }; // Close returned object
