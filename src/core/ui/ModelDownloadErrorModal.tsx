@@ -20,7 +20,12 @@ export function ModelDownloadErrorModal({
   onRetry,
   onDismiss,
 }: ModelDownloadErrorModalProps) {
-  const { hushTheme, classifiedTheme, discretionTheme, flavor } = useChatStore();
+  // PERFORMANCE FIX: Use selective subscriptions instead of destructuring entire store
+  // Destructuring subscribes to EVERY state change including streamingText (50-200 updates/response)
+  const hushTheme = useChatStore((state) => state.hushTheme);
+  const classifiedTheme = useChatStore((state) => state.classifiedTheme);
+  const discretionTheme = useChatStore((state) => state.discretionTheme);
+  const flavor = useChatStore((state) => state.flavor);
 
   const getTheme = () => {
     if (flavor === 'CLASSIFIED') {

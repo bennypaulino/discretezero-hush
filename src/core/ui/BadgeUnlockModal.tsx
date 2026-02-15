@@ -71,7 +71,14 @@ export function BadgeUnlockModal({ visible, onClose, onViewGallery }: BadgeUnloc
   const newlyUnlockedBadge = useChatStore(
     useShallow((state) => state.gameState?.newlyUnlockedBadge)
   );
-  const { hushTheme, classifiedTheme, discretionTheme, flavor } = useChatStore();
+
+  // PERFORMANCE FIX: Use selective subscriptions instead of destructuring entire store
+  // Destructuring subscribes to EVERY state change including streamingText (50-200 updates/response)
+  // This caused 200+ re-renders of BadgeUnlockModal during AI generation
+  const hushTheme = useChatStore((state) => state.hushTheme);
+  const classifiedTheme = useChatStore((state) => state.classifiedTheme);
+  const discretionTheme = useChatStore((state) => state.discretionTheme);
+  const flavor = useChatStore((state) => state.flavor);
 
   if (__DEV__) {
     console.log('[BadgeUnlockModal] Render - newlyUnlockedBadge:', newlyUnlockedBadge, 'visible prop:', visible);

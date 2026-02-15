@@ -17,7 +17,15 @@ interface PaywallModalProps {
 }
 
 export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, trigger, mode }) => {
-  const { flavor, dismissPaywall, setSubscription, hushTheme, discretionTheme, classifiedTheme, classifiedPaywallFlowMode } = useChatStore();
+  // PERFORMANCE FIX: Use selective subscriptions instead of destructuring entire store
+  // Destructuring subscribes to EVERY state change including streamingText (50-200 updates/response)
+  const flavor = useChatStore((state) => state.flavor);
+  const dismissPaywall = useChatStore((state) => state.dismissPaywall);
+  const setSubscription = useChatStore((state) => state.setSubscription);
+  const hushTheme = useChatStore((state) => state.hushTheme);
+  const discretionTheme = useChatStore((state) => state.discretionTheme);
+  const classifiedTheme = useChatStore((state) => state.classifiedTheme);
+  const classifiedPaywallFlowMode = useChatStore((state) => state.classifiedPaywallFlowMode);
   const [showFullFeatures, setShowFullFeatures] = useState(false);
   const [toggleValue, setToggleValue] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
