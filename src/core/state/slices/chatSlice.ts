@@ -661,7 +661,10 @@ Summary:`;
       // Start streaming state
       get().startStreaming(streamingMessageId);
 
-      // Set 15-second timeout to clear stuck placeholder if streaming fails
+      // Set 90-second timeout to clear stuck placeholder if streaming fails
+      // PERFORMANCE FIX: Increased from 15s to 90s because AI generation can take 60-70s
+      // on lower-end devices in efficient mode. Timeout was firing prematurely and
+      // deleting placeholder before response completed, causing "Context changed" errors.
       const timeoutId = setTimeout(() => {
         const currentState = get();
         // Only clear if this placeholder is still the active streaming message
@@ -690,7 +693,7 @@ Summary:`;
           // Clear streaming state
           get().finishStreaming();
         }
-      }, 15000); // 15 seconds
+      }, 90000); // 90 seconds (increased from 15s to accommodate slower AI generation)
 
       // Store timeout ID so it can be cleared on successful completion
       set({ placeholderTimeoutId: timeoutId });

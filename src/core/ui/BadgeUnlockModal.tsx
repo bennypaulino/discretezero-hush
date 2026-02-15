@@ -80,14 +80,7 @@ export function BadgeUnlockModal({ visible, onClose, onViewGallery }: BadgeUnloc
   const discretionTheme = useChatStore((state) => state.discretionTheme);
   const flavor = useChatStore((state) => state.flavor);
 
-  if (__DEV__) {
-    console.log('[BadgeUnlockModal] Render - newlyUnlockedBadge:', newlyUnlockedBadge, 'visible prop:', visible);
-  }
-
   if (!newlyUnlockedBadge || !visible) {
-    if (__DEV__) {
-      console.log('[BadgeUnlockModal] Not showing modal (newlyUnlockedBadge:', newlyUnlockedBadge, 'visible:', visible, ')');
-    }
     return null;
   }
 

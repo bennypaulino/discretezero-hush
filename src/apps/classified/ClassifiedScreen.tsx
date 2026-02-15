@@ -721,7 +721,6 @@ Type any protocol keyword to begin.`;
       )}
       {!isInIntro && (
         <>
-          {__DEV__ && console.log('[ClassifiedScreen] Rendering BadgeUnlockModal - newlyUnlockedBadge:', newlyUnlockedBadge, 'visible:', !!newlyUnlockedBadge, 'isInIntro:', isInIntro)}
           <BadgeUnlockModal
             visible={!!newlyUnlockedBadge}
             onClose={() => {
