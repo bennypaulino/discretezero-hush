@@ -66,6 +66,9 @@ export const AISettings: React.FC<AISettingsProps> = ({
   const responseStyleDiscretion = useChatStore((state) => state.responseStyleDiscretion);
   const clearHistory = useChatStore((state) => state.clearHistory);
 
+  // Storage summary (always called at top level for React Hooks rules)
+  const storage = useStorageSummary();
+
   // Download resume tracking
   const downloadResumeInProgress = useRef(false);
 
@@ -259,7 +262,6 @@ export const AISettings: React.FC<AISettingsProps> = ({
 
   const renderPerformanceModesScreen = () => {
     const { balancedUpgradeOffered } = useChatStore.getState();
-    const storage = useStorageSummary();
 
     const isBalancedDownloading = currentlyDownloading === 'balanced';
     const isQualityDownloading = currentlyDownloading === 'quality';
