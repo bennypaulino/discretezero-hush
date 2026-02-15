@@ -697,30 +697,56 @@ export async function generateResponse(
 
     if (responseStyle === 'operator') {
       // CLASSIFIED OPERATOR: Adaptive tactical briefing with military discipline
+      // Stronger enforcement: Default to brevity, only expand when clearly needed
+      const maxSafeTokens = Math.min(budgets.maxAIResponseTokens - 45, 180); // Reserve 45 tokens safety buffer
       systemPrompt += `\n\n=== OPERATIONAL PARAMETERS ===
-TOKEN_BUDGET: ${budgets.maxAIResponseTokens} tokens (~${wordEstimate} words MAX)
+TOKEN_BUDGET: ${budgets.maxAIResponseTokens} tokens (~${wordEstimate} words ABSOLUTE MAX)
+SAFE_LIMIT: ${maxSafeTokens} tokens (ensures clean completion)
 
 RESPONSE_PROTOCOL: TELEGRAPHIC TACTICAL BRIEFING
 - MAINTAIN UPPERCASE FORMAT. MILITARY JARGON MANDATORY.
-- ASSESS QUERY COMPLEXITY. ALLOCATE TOKENS ACCORDINGLY:
-  * SIMPLE_OPS: 1-2 STATEMENTS (30-60 tokens)
-  * MODERATE_OPS: 3-4 STATEMENTS (80-120 tokens)
-  * COMPLEX_OPS: FULL BRIEFING (150-${budgets.maxAIResponseTokens} tokens)
+- ASSESS QUERY COMPLEXITY. RESPOND ACCORDINGLY:
 
-CRITICAL_DIRECTIVE: COMPLETE ALL TRANSMISSIONS WITHIN BUDGET. NO MID-SENTENCE CUTOFFS.
+  * SIMPLE_OPS (definitions, confirmations, status checks): 1-2 TERSE STATEMENTS. MAX 60 TOKENS.
+    Examples: "What is X?", "Confirm Y", "Status of Z"
+
+  * MODERATE_OPS (explanations, procedures, how-to): 3-4 TACTICAL STATEMENTS. MAX 120 TOKENS.
+    Examples: "How does X work?", "Explain Y process", "Steps for Z"
+
+  * COMPLEX_OPS (multi-part questions, analysis, strategic planning): STRUCTURED BRIEFING. MAX ${maxSafeTokens} TOKENS.
+    Examples: "Analyze X implications", "Compare Y and Z", "Strategic assessment of W"
+
+DEFAULT_MODE: SIMPLE_OPS. Only escalate to MODERATE/COMPLEX if query explicitly demands detail.
+
+CRITICAL_DIRECTIVES:
+- COMPLETE FINAL STATEMENT. No mid-sentence transmission failures.
+- CUT BRIEFING SHORT rather than exceed ${maxSafeTokens} tokens.
+- PRIORITIZE COMPLETION over comprehensiveness.
+
 TONE_ENFORCEMENT: COLD. PRECISE. AUTHORITATIVE. ACTION-ORIENTED.`;
 
     } else if (responseStyle === 'analyst') {
-      // CLASSIFIED ANALYST: Structured intelligence assessment
+      // CLASSIFIED ANALYST: Structured intelligence assessment with completion guarantee
+      const maxSafeTokens = Math.min(budgets.maxAIResponseTokens - 100, budgets.maxAIResponseTokens * 0.85); // Reserve buffer
       systemPrompt += `\n\n=== INTELLIGENCE ASSESSMENT PARAMETERS ===
-TOKEN_BUDGET: ${budgets.maxAIResponseTokens} tokens (~${wordEstimate} words MAX)
+TOKEN_BUDGET: ${budgets.maxAIResponseTokens} tokens (~${wordEstimate} words ABSOLUTE MAX)
+SAFE_LIMIT: ${Math.floor(maxSafeTokens)} tokens (ensures clean completion)
 
 ASSESSMENT_PROTOCOL: STRUCTURED INTELLIGENCE ANALYSIS
 - MAINTAIN UPPERCASE FORMAT. INTELLIGENCE TERMINOLOGY MANDATORY.
 - STANDARD STRUCTURE: ASSESSMENT → IMPLICATIONS → STRATEGIC_CONTEXT
-- SCALE ANALYSIS DEPTH TO QUERY COMPLEXITY AND TOKEN ALLOCATION
 
-CRITICAL_DIRECTIVE: COMPLETE ALL ANALYSIS SECTIONS WITHIN BUDGET. NO MID-ASSESSMENT CUTOFFS.
+COMPLEXITY SCALING:
+  * SIMPLE_QUERIES: Brief assessment only. MAX 150 tokens.
+  * MODERATE_QUERIES: Assessment + Implications. MAX 400 tokens.
+  * COMPLEX_QUERIES: Full structure (all 3 sections). MAX ${Math.floor(maxSafeTokens)} tokens.
+
+CRITICAL_DIRECTIVES:
+- COMPLETE ALL STARTED SECTIONS. No mid-assessment cutoffs.
+- ABBREVIATE SECTIONS if approaching token limit.
+- PRIORITIZE CLEAN COMPLETION over exhaustive detail.
+- STOP CLEANLY when analysis complete.
+
 TONE_ENFORCEMENT: COLD. PRECISE. AUTHORITATIVE. ANALYTICAL.`;
 
     } else {
