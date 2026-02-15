@@ -946,7 +946,11 @@ export const AISettings: React.FC<AISettingsProps> = ({
             <>
               FREE TIER: RECENT MESSAGES REMEMBERED. OLDEST FORGOTTEN AS NEW ARRIVE.{'\n\n'}
               PRO TIER: 4X MORE MEMORY. OLDER MESSAGES SUMMARIZED, NOT FORGOTTEN.{'\n\n'}
-              YOUR CONTROL: ALL MESSAGES AES256 ENCRYPTED UNTIL YOU DELETE.
+              {subscriptionTier === 'FREE' ? (
+                <>YOU ARE IN CONTROL: ALL MESSAGES ENCRYPTED ON YOUR DEVICE. USE CLEAR BUTTON IN MAIN CHAT SCREEN TO SECURELY DELETE ALL MESSAGES.</>
+              ) : (
+                <>YOU ARE IN CONTROL: ALL MESSAGES ENCRYPTED ON YOUR DEVICE. DELETE THEM SECURELY USING CLEAR CONVERSATION HISTORY ABOVE, CLEAR IN MAIN CHAT, OR PANIC WIPE (SETTINGS, SECURITY).</>
+              )}
             </>
           ) : (
             <>
@@ -954,7 +958,15 @@ export const AISettings: React.FC<AISettingsProps> = ({
               {'\n\n'}
               <Text style={{ fontWeight: '600' }}>Pro:</Text> 4x more memory. When capacity is reached, older messages are summarized instead of forgotten.
               {'\n\n'}
-              <Text style={{ fontWeight: '600' }}>Your control:</Text> All messages are encrypted on your device. Use "Clear History" or Panic Wipe to securely delete.
+              {subscriptionTier === 'FREE' ? (
+                <>
+                  <Text style={{ fontWeight: '600' }}>You're in control:</Text> All messages are encrypted on your device. Use "Clear" button in the main chat screen to securely delete all messages.
+                </>
+              ) : (
+                <>
+                  <Text style={{ fontWeight: '600' }}>You're in control:</Text> All messages are encrypted on your device. Delete them securely using "Clear Conversation History" above, "Clear" in the main chat, or Panic Wipe (Settings {'>'} Security).
+                </>
+              )}
             </>
           )}
         </Text>
