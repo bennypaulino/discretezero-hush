@@ -21,6 +21,35 @@ declare const __DEV__: boolean;
 const PASSCODE_KEY = 'hush_passcode';
 const DURESS_KEY = 'hush_duress';
 
+/**
+ * Constant-time string comparison to prevent timing attacks
+ *
+ * Timing attacks measure response time to extract passcode characters.
+ * This function ensures all comparisons take the same time regardless of
+ * where the strings differ.
+ *
+ * @param a - First string (stored passcode)
+ * @param b - Second string (user input)
+ * @returns true if strings match, false otherwise
+ */
+function constantTimeStringCompare(a: string | null, b: string): boolean {
+  if (!a) return false;
+
+  // Ensure both strings are same length (pad with nulls if needed)
+  const maxLen = Math.max(a.length, b.length);
+  const aPadded = a.padEnd(maxLen, '\0');
+  const bPadded = b.padEnd(maxLen, '\0');
+
+  // XOR all characters - result is 0 only if all chars match
+  let result = 0;
+  for (let i = 0; i < maxLen; i++) {
+    result |= aPadded.charCodeAt(i) ^ bPadded.charCodeAt(i);
+  }
+
+  // Check both: XOR result is 0 AND lengths match
+  return result === 0 && a.length === b.length;
+}
+
 // Forward declaration for cross-slice access
 interface ChatSliceMinimal {
   flavor: AppFlavor;
@@ -161,15 +190,15 @@ export const createSecuritySlice: StateCreator<
       const realPasscode = await SecureStore.getItemAsync(PASSCODE_KEY);
       const duressCode = await SecureStore.getItemAsync(DURESS_KEY);
 
-      // Check duress code first
-      if (duressCode && code === duressCode) {
+      // Check duress code first (constant-time comparison prevents timing attacks)
+      if (constantTimeStringCompare(duressCode, code)) {
         // Reset failed attempts on successful unlock
         set({ failedPasscodeAttempts: 0, passcodeLockoutUntil: null });
         return 'duress';
       }
 
-      // Check real passcode
-      if (realPasscode && code === realPasscode) {
+      // Check real passcode (constant-time comparison prevents timing attacks)
+      if (constantTimeStringCompare(realPasscode, code)) {
         // Reset failed attempts on successful unlock
         set({ failedPasscodeAttempts: 0, passcodeLockoutUntil: null });
         return 'real';

@@ -25,7 +25,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-// import { EncryptedStorage } from '../storage/EncryptedStorage';
+import { EncryptedStorage } from '../storage/EncryptedStorage';
 
 declare const __DEV__: boolean;
 
@@ -155,9 +155,9 @@ export const useChatStore = create<StoreState>()(
     }),
     {
       name: 'discrete-zero-storage',
-      // TEMPORARY: Using plain AsyncStorage to debug crash
-      // TODO: Re-enable EncryptedStorage after identifying crash cause
-      storage: createJSONStorage(() => AsyncStorage),
+      // AES-256 encrypted storage with hardware-backed master key
+      // Master key stored in SecureStore (hardware-backed), data encrypted in AsyncStorage
+      storage: createJSONStorage(() => EncryptedStorage),
       // Don't persist sensitive security state or session-based state
       partialize: (state) => ({
         ...state,

@@ -380,6 +380,17 @@ eas build:list
 
 ## Security Considerations
 
+### Encryption Implementation
+
+**AES-256-CBC encryption is implemented in `src/core/storage/EncryptedStorage.ts`:**
+
+- **Master key**: 256-bit key generated with expo-crypto CSPRNG, stored in hardware-backed SecureStore
+- **IV generation**: 128-bit random IV per encryption using expo-crypto (not crypto-js)
+- **Storage**: Encrypted data stored in AsyncStorage with format `iv:ciphertext` (both base64)
+- **CRITICAL**: Always use expo-crypto for random number generation in React Native
+  - crypto-js `WordArray.random()` fails in React Native (needs Node.js/browser crypto APIs)
+  - expo-crypto provides platform-native CSPRNG via `getRandomBytesAsync()`
+
 ### Never Commit
 
 - **API keys** - Use environment variables
@@ -443,7 +454,9 @@ git checkout -b feature/3-fix-panic-wipe
 - **TypeScript** - Type-safe JavaScript
 - **Zustand** - State management
 - **llama.rn** - On-device AI inference
-- **expo-secure-store** - Hardware-backed encryption
+- **expo-secure-store** - Hardware-backed key storage
+- **expo-crypto** - Cryptographically secure random number generation (CSPRNG)
+- **crypto-js** - AES-256-CBC encryption/decryption (with expo-crypto for RNG)
 - **Native Modules** - Swift (iOS) and Kotlin (Android)
 
 ---
@@ -497,4 +510,4 @@ git stash pop
 
 ---
 
-*Last updated: 2026-02-11*
+*Last updated: 2026-02-14*

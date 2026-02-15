@@ -16,7 +16,7 @@
       "supportsTablet": true,
       "icon": "./assets/hush-icon-1024.png",
       "bundleIdentifier": "com.discretezero.hush",
-      "buildNumber": "37",
+      "buildNumber": "39",
       "deploymentTarget": "16.0",
       "infoPlist": {
         "MinimumOSVersion": "16.0",

@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useChatStore, Message } from '../../core/state/rootStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useAppTheme } from '../../core/hooks/useAppTheme';
 import { useSecureLock } from '../../core/hooks/useSecureLock';
 import { useDoubleTap } from '../../core/hooks/useDoubleTap';
@@ -66,23 +67,45 @@ export const HushScreen = () => {
   // Sound effects for animations
   const { playForAnimation } = useSoundEffect();
 
-  const {
-    messages, sendMessage, addMessage, isTyping, clearHistory,
-    toggleFlavor, showPaywall, paywallReason, setShowPaywall, triggerPaywall, handleDailyLimitBannerTap, togglePrivacyBlur,
-    hushBurnStyle, subscriptionTier, proFirstLaunchSeen, setProFirstLaunchSeen,
-    showPostPurchaseCelebration, setShowPostPurchaseCelebration,
-    // STREAMING STATE (P1.11 Phase 0)
-    streamingMessageId, streamingText,
-  } = useChatStore();
+  // Selective Zustand subscriptions to prevent excessive re-renders
+  const messages = useChatStore((state) => state.messages);
+  const sendMessage = useChatStore((state) => state.sendMessage);
+  const addMessage = useChatStore((state) => state.addMessage);
+  const isTyping = useChatStore((state) => state.isTyping);
+  const clearHistory = useChatStore((state) => state.clearHistory);
+  const toggleFlavor = useChatStore((state) => state.toggleFlavor);
+  const showPaywall = useChatStore((state) => state.showPaywall);
+  const paywallReason = useChatStore((state) => state.paywallReason);
+  const setShowPaywall = useChatStore((state) => state.setShowPaywall);
+  const triggerPaywall = useChatStore((state) => state.triggerPaywall);
+  const handleDailyLimitBannerTap = useChatStore((state) => state.handleDailyLimitBannerTap);
+  const togglePrivacyBlur = useChatStore((state) => state.togglePrivacyBlur);
+  const hushBurnStyle = useChatStore((state) => state.hushBurnStyle);
+  const subscriptionTier = useChatStore((state) => state.subscriptionTier);
+  const proFirstLaunchSeen = useChatStore((state) => state.proFirstLaunchSeen);
+  const setProFirstLaunchSeen = useChatStore((state) => state.setProFirstLaunchSeen);
+  const showPostPurchaseCelebration = useChatStore((state) => state.showPostPurchaseCelebration);
+  const setShowPostPurchaseCelebration = useChatStore((state) => state.setShowPostPurchaseCelebration);
+
+  // STREAMING STATE (P1.11 Phase 0) - Only subscribe to streamingMessageId (changes rarely)
+  // DON'T subscribe to streamingText (changes 50-200 times per response)
+  const streamingMessageId = useChatStore((state) => state.streamingMessageId);
 
   // Badge unlock notification
-  const newlyUnlockedBadge = useChatStore((state) => state.gameState.newlyUnlockedBadge);
+  // CRITICAL: Use useShallow to prevent re-renders when gameState reference changes
+  // Only re-render when newlyUnlockedBadge VALUE changes (not gameState object reference)
+  const newlyUnlockedBadge = useChatStore(
+    useShallow((state) => state.gameState.newlyUnlockedBadge)
+  );
   const setNewlyUnlockedBadge = useChatStore((state) => state.setNewlyUnlockedBadge);
 
   // Balanced upgrade toast state
   const messageCountSinceUpgradeOffer = useChatStore((state) => state.messageCountSinceUpgradeOffer);
   const balancedUpgradeOffered = useChatStore((state) => state.balancedUpgradeOffered);
-  const activeGameId = useChatStore((state) => state.gameState.currentSession.activeGameId);
+  // CRITICAL: Use useShallow to prevent re-renders when gameState reference changes
+  const activeGameId = useChatStore(
+    useShallow((state) => state.gameState.currentSession.activeGameId)
+  );
   const modeDownloadState = useChatStore((state) => state.modeDownloadState);
 
   // Model download error state
@@ -496,8 +519,10 @@ Choose what you need right now.`;
   }), []);
 
   const renderItem = useCallback(({ item }: { item: Message }) => {
-    // STREAMING (P1.11 Phase 0): Use streaming text for messages being generated
-    const displayText = item.id === streamingMessageId ? streamingText : item.text;
+    // STREAMING (P1.11 Phase 0): Access streamingText via getState() to avoid subscription
+    // This prevents 50-200 re-renders per response while still getting latest text
+    const currentStreamingText = useChatStore.getState().streamingText;
+    const displayText = item.id === streamingMessageId ? currentStreamingText : item.text;
 
     // TYPING INDICATOR (P1.11 Phase 7): Show typing animation for placeholder messages
     // Placeholder messages have empty text and are waiting for AI response
@@ -515,7 +540,7 @@ Choose what you need right now.`;
     }
 
     return <PrivacyMessage text={displayText} isUser={item.role === 'user'} />;
-  }, [streamingMessageId, streamingText, activeTheme.colors.primary]);
+  }, [activeTheme.colors.primary]);
 
   return (
     // ROOT VIEW: Attach the hook handler here

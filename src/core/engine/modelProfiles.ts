@@ -107,8 +107,8 @@ const MODEL_PROFILES: Record<string, ModelProfile> = {
     // With streaming: Users see first words in ~1-2s, then watch text appear
     responseTimeBudgets: {
       quick: {
-        targetSeconds: 6, // Fast response (1-2s latency + 4-5s streaming)
-        tokens: 150, // 25 tokens/sec × 6s = 150 tokens
+        targetSeconds: 9, // Fast response (1-2s latency + 7s streaming, 50% safety margin)
+        tokens: 225, // 25 tokens/sec × 9s = 225 tokens (~170 words, 1-2 sentences + margin)
       },
       thoughtful: {
         targetSecondsFree: 32,
@@ -150,8 +150,8 @@ const MODEL_PROFILES: Record<string, ModelProfile> = {
     // With streaming: First words in ~1-2s, comfortable to watch 60-70s of streaming
     responseTimeBudgets: {
       quick: {
-        targetSeconds: 7,
-        tokens: 140, // 20 tokens/sec × 7s ≈ 140 tokens
+        targetSeconds: 10.5,
+        tokens: 210, // 20 tokens/sec × 10.5s = 210 tokens (~160 words, 1-2 sentences + margin)
       },
       thoughtful: {
         targetSecondsFree: 35,
@@ -194,8 +194,8 @@ const MODEL_PROFILES: Record<string, ModelProfile> = {
     // Watching 90 seconds of streaming is fine for best quality responses
     responseTimeBudgets: {
       quick: {
-        targetSeconds: 10,
-        tokens: 120, // 12 tokens/sec × 10s = 120 tokens
+        targetSeconds: 15,
+        tokens: 180, // 12 tokens/sec × 15s = 180 tokens (~135 words, 1-2 sentences + margin)
       },
       thoughtful: {
         targetSecondsFree: 50,

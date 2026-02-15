@@ -86,19 +86,18 @@ export const DiscretionScreen = () => {
 
   const { isLocked, unlock } = useSecureLock();
 
-  const {
-      messages,
-      sendMessage,
-      isTyping,
-      clearHistory,
-      toggleFlavor,
-      togglePrivacyBlur,
-      privacyBlurEnabled,
-      subscriptionTier,
-      // STREAMING STATE (P1.11 Phase 0)
-      streamingMessageId,
-      streamingText,
-  } = useChatStore();
+  // PERFORMANCE FIX: Use selective subscriptions to prevent excessive re-renders
+  // Non-selective subscriptions caused 50-200 re-renders per AI response when streamingText updated
+  const messages = useChatStore((state) => state.messages);
+  const sendMessage = useChatStore((state) => state.sendMessage);
+  const isTyping = useChatStore((state) => state.isTyping);
+  const clearHistory = useChatStore((state) => state.clearHistory);
+  const toggleFlavor = useChatStore((state) => state.toggleFlavor);
+  const togglePrivacyBlur = useChatStore((state) => state.togglePrivacyBlur);
+  const privacyBlurEnabled = useChatStore((state) => state.privacyBlurEnabled);
+  const subscriptionTier = useChatStore((state) => state.subscriptionTier);
+  const streamingMessageId = useChatStore((state) => state.streamingMessageId);
+  // DON'T subscribe to streamingText - access via getState() in renderItem to avoid re-renders
 
   const modeDownloadState = useChatStore((state) => state.modeDownloadState);
 
@@ -236,7 +235,9 @@ export const DiscretionScreen = () => {
 
   const renderItem = useCallback(({ item }: { item: any }) => {
     // STREAMING (P1.11 Phase 0): Use streaming text for messages being generated
-    const displayText = item.id === streamingMessageId ? streamingText : item.text;
+    // PERFORMANCE FIX: Access streamingText via getState() to avoid subscribing to every token update
+    const currentStreamingText = useChatStore.getState().streamingText;
+    const displayText = item.id === streamingMessageId ? currentStreamingText : item.text;
     const cleanContent = stripEmojis(displayText);
     const isUser = item.role === 'user';
 
@@ -278,7 +279,7 @@ export const DiscretionScreen = () => {
         </View>
       </PrivacyBlock>
     );
-  }, [privacyBlurEnabled, handleGlobalDoubleTap, THEME.userBubble, THEME.accent, streamingMessageId, streamingText, appTheme.colors.primary]);
+  }, [privacyBlurEnabled, handleGlobalDoubleTap, THEME.userBubble, THEME.accent, appTheme.colors.primary, streamingMessageId]);
 
   return (
     <View

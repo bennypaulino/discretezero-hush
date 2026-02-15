@@ -7,7 +7,7 @@ import NetInfo from '@react-native-community/netinfo';
 import * as Battery from 'expo-battery';
 import * as Notifications from 'expo-notifications';
 import { AppState, type NativeEventSubscription } from 'react-native';
-import { PERSONALITIES } from './GroqAI';
+import { PERSONALITIES } from './personalities';
 import type { AppFlavor } from '../../config';
 import type { ResponseStyleHush, ResponseStyleClassified, ResponseStyleDiscretion, PerformanceMode, Message } from '../state/rootStore';
 import { useChatStore } from '../state/rootStore';
@@ -694,9 +694,74 @@ export async function generateResponse(
     // === INJECT BUDGET AWARENESS INTO SYSTEM PROMPT ===
     // This prevents mid-sentence cutoffs by making AI aware of its token limits
     const wordEstimate = Math.floor(budgets.maxAIResponseTokens * 0.75);
-    systemPrompt += `\n\nRESPONSE_BUDGET: ${budgets.maxAIResponseTokens} tokens (~${wordEstimate} words)
+
+    if (responseStyle === 'operator') {
+      // CLASSIFIED OPERATOR: Hard character limit + explicit formatting rules
+      // 400 characters = ~100 words = ~133 tokens (well under 225 token budget)
+      systemPrompt += `\n\n=== OPERATIONAL DIRECTIVE ===
+RESPONSE_LIMIT: MAXIMUM 400 CHARACTERS. HARD CUTOFF.
+FORMAT_ENFORCEMENT: UPPERCASE MANDATORY. MILITARY JARGON REQUIRED.
+STYLE: TELEGRAPHIC. TERSE. ACTION-ORIENTED.
+
+QUERY_CLASSIFICATION:
+- TACTICAL queries (sitrep, status, location, orders, threat assessment): PROVIDE DIRECT TACTICAL RESPONSE.
+- EDUCATIONAL queries (explain, how does, what is, teach me, in detail): REDIRECT TO ANALYST.
+  Redirect format: "EDUCATIONAL QUERY DETECTED. OPERATOR MODE HANDLES TACTICAL BRIEFINGS ONLY. SWITCH TO ANALYST MODE IN SETTINGS FOR DETAILED TECHNICAL EXPLANATIONS."
+
+FORMATTING_RESTRICTIONS (CRITICAL):
+- DO NOT use markdown symbols (**, *, -, #, etc.) EXCEPT dashes for action orders
+- DO NOT use numbered lists (1., 2., 3.)
+- DO NOT use section headers or formatting
+- PLAIN UPPERCASE TEXT ONLY. Period-separated statements.
+- Dashes permitted ONLY for military action orders (e.g., "ACTION ORDER: - SEAL AREA. - REPORT STATUS.")
+
+CRITICAL_DIRECTIVES:
+- COMPLETE ALL STATEMENTS. No mid-transmission cutoffs.
+- STOP at 400 characters or earlier if response complete.
+- PRIORITIZE COMPLETION over comprehensiveness.
+
+TONE_ENFORCEMENT: COLD. PRECISE. AUTHORITATIVE.`;
+
+    } else if (responseStyle === 'analyst') {
+      // CLASSIFIED ANALYST: Structured intelligence assessment with completion guarantee
+      const maxSafeTokens = Math.min(budgets.maxAIResponseTokens - 100, budgets.maxAIResponseTokens * 0.85); // Reserve buffer
+      systemPrompt += `\n\n=== INTELLIGENCE ASSESSMENT PARAMETERS ===
+TOKEN_BUDGET: ${budgets.maxAIResponseTokens} tokens (~${wordEstimate} words ABSOLUTE MAX)
+SAFE_LIMIT: ${Math.floor(maxSafeTokens)} tokens (ensures clean completion)
+
+ASSESSMENT_PROTOCOL: STRUCTURED INTELLIGENCE ANALYSIS
+- MAINTAIN UPPERCASE FORMAT. INTELLIGENCE TERMINOLOGY MANDATORY.
+- STANDARD STRUCTURE: ASSESSMENT → IMPLICATIONS → STRATEGIC_CONTEXT
+
+COMPLEXITY SCALING:
+  * SIMPLE_QUERIES: Brief assessment only. MAX 150 tokens.
+  * MODERATE_QUERIES: Assessment + Implications. MAX 400 tokens.
+  * COMPLEX_QUERIES: Full structure (all 3 sections). MAX ${Math.floor(maxSafeTokens)} tokens.
+
+CRITICAL_DIRECTIVES:
+- COMPLETE ALL STARTED SECTIONS. No mid-assessment cutoffs.
+- ABBREVIATE SECTIONS if approaching token limit.
+- PRIORITIZE CLEAN COMPLETION over exhaustive detail.
+- STOP CLEANLY when analysis complete.
+
+TONE_ENFORCEMENT: COLD. PRECISE. AUTHORITATIVE. ANALYTICAL.`;
+
+    } else {
+      // Other modes: HUSH (quick/thoughtful) and DISCRETION (warm/formal)
+      const isQuickMode = responseStyle === 'quick' || responseStyle === 'warm';
+
+      if (isQuickMode) {
+        // Quick mode: Emphasize extreme brevity (1-2 sentences)
+        systemPrompt += `\n\nCRITICAL CONSTRAINT: Your response MUST be 1-2 complete sentences. Be concise and direct.
+BUDGET: ${budgets.maxAIResponseTokens} tokens (~${wordEstimate} words max)
+DO NOT elaborate or provide additional context. Answer the question directly and stop.`;
+      } else {
+        // Thoughtful mode: Allow detailed responses within budget
+        systemPrompt += `\n\nRESPONSE_BUDGET: ${budgets.maxAIResponseTokens} tokens (~${wordEstimate} words)
 CONSTRAINT: Complete your thought within budget. No mid-sentence cutoffs.
 ESTIMATED_TIME: ~${budgets.estimatedResponseTime} seconds`;
+      }
+    }
 
     // Use calculated budget instead of hardcoded values
     const maxTokens = budgets.maxAIResponseTokens;

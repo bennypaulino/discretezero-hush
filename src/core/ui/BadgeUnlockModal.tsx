@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useChatStore, getBadgeTierDisplayName, BadgeId } from '../state/rootStore';
+import { useShallow } from 'zustand/react/shallow';
 import { HUSH_THEMES, CLASSIFIED_THEMES, DISCRETION_THEMES } from '../themes/themes';
 import { CURRENT_FLAVOR, AppFlavor } from '../../config';
 
@@ -66,17 +67,20 @@ const BADGE_DEFINITIONS: Record<string, { name: string; description: string; tie
 
 export function BadgeUnlockModal({ visible, onClose, onViewGallery }: BadgeUnlockModalProps) {
   // Access newlyUnlockedBadge from gameState (nested property)
-  const newlyUnlockedBadge = useChatStore((state) => state.gameState?.newlyUnlockedBadge);
-  const { hushTheme, classifiedTheme, discretionTheme, flavor } = useChatStore();
+  // CRITICAL: Use useShallow to prevent re-renders when gameState reference changes
+  const newlyUnlockedBadge = useChatStore(
+    useShallow((state) => state.gameState?.newlyUnlockedBadge)
+  );
 
-  if (__DEV__) {
-    console.log('[BadgeUnlockModal] Render - newlyUnlockedBadge:', newlyUnlockedBadge, 'visible prop:', visible);
-  }
+  // PERFORMANCE FIX: Use selective subscriptions instead of destructuring entire store
+  // Destructuring subscribes to EVERY state change including streamingText (50-200 updates/response)
+  // This caused 200+ re-renders of BadgeUnlockModal during AI generation
+  const hushTheme = useChatStore((state) => state.hushTheme);
+  const classifiedTheme = useChatStore((state) => state.classifiedTheme);
+  const discretionTheme = useChatStore((state) => state.discretionTheme);
+  const flavor = useChatStore((state) => state.flavor);
 
   if (!newlyUnlockedBadge || !visible) {
-    if (__DEV__) {
-      console.log('[BadgeUnlockModal] Not showing modal (newlyUnlockedBadge:', newlyUnlockedBadge, 'visible:', visible, ')');
-    }
     return null;
   }
 

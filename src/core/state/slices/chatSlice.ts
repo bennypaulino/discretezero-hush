@@ -661,7 +661,16 @@ Summary:`;
       // Start streaming state
       get().startStreaming(streamingMessageId);
 
-      // Set 15-second timeout to clear stuck placeholder if streaming fails
+      // DYNAMIC TIMEOUT: Calculate based on estimated response time for this specific request
+      // Uses device capabilities, context size, and performance mode to determine safe timeout
+      // Adds 30-second buffer to account for variability and ensure completion
+      const estimatedTime = budgets.estimatedResponseTime || 60; // Fallback to 60s if unavailable
+      const timeoutDuration = (estimatedTime + 30) * 1000; // Add 30s buffer, convert to ms
+
+      if (__DEV__) {
+        console.log(`[sendMessage] Setting dynamic timeout: ${timeoutDuration / 1000}s (estimated: ${estimatedTime}s + 30s buffer)`);
+      }
+
       const timeoutId = setTimeout(() => {
         const currentState = get();
         // Only clear if this placeholder is still the active streaming message
@@ -690,7 +699,7 @@ Summary:`;
           // Clear streaming state
           get().finishStreaming();
         }
-      }, 15000); // 15 seconds
+      }, timeoutDuration); // Dynamic timeout based on estimated response time + buffer
 
       // Store timeout ID so it can be cleared on successful completion
       set({ placeholderTimeoutId: timeoutId });
@@ -973,12 +982,18 @@ Summary:`;
   /**
    * Append a token to the streaming text
    * Called for each token received from AI
+   *
+   * PERFORMANCE FIX: Use direct set() syntax instead of function-based set()
+   * Function-based set((state) => ({ ... })) creates NEW references for ALL state properties,
+   * triggering ALL selective subscriptions to re-check (even if values unchanged).
+   * Direct set({ ... }) only updates specified property references.
    */
   appendStreamingToken: (token: string) => {
-    set((state) => ({
+    const state = get();
+    set({
       streamingText: state.streamingText + token,
       streamingTokenCount: state.streamingTokenCount + 1,
-    }));
+    });
   },
 
   /**

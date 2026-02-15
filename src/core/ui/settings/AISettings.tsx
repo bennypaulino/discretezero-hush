@@ -20,6 +20,7 @@ import type { SettingsTheme } from '../../themes/settingsThemeEngine';
 import { downloadModel, deleteModel, cancelDownload, hasActiveDownload } from '../../engine/LocalAI';
 import { getBalancedWarning, getQualityWarning, canDownloadQuality } from '../../utils/deviceCapabilities';
 import type { AIScreen } from './shared/types';
+import { estimateConversationTokens, getContextWindowSize, getContextUsagePercent } from '../../utils/tokenCounter';
 
 interface AISettingsProps {
   currentScreen: AIScreen;
@@ -56,6 +57,11 @@ export const AISettings: React.FC<AISettingsProps> = ({
   const subscriptionTier = useChatStore((state) => state.subscriptionTier);
   const classifiedTheme = useChatStore((state) => state.classifiedTheme);
   const triggerPaywall = useChatStore((state) => state.triggerPaywall);
+  const messages = useChatStore((state) => state.messages);
+  const responseStyleHush = useChatStore((state) => state.responseStyleHush);
+  const responseStyleClassified = useChatStore((state) => state.responseStyleClassified);
+  const responseStyleDiscretion = useChatStore((state) => state.responseStyleDiscretion);
+  const clearHistory = useChatStore((state) => state.clearHistory);
 
   // Download resume tracking
   const downloadResumeInProgress = useRef(false);
@@ -692,7 +698,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
       />
       <ScrollView contentContainerStyle={styles.content}>
         {/* PRIVACY FIRST: Highlight local-only storage */}
-        <View style={[styles.memoryCard, { backgroundColor: theme.card, marginTop: 0, borderLeftWidth: 3, borderLeftColor: theme.accent }]}>
+        <View style={[styles.memoryCard, { backgroundColor: theme.card, marginTop: 0 }]}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
             <Ionicons
               name="shield-checkmark"
@@ -706,12 +712,166 @@ export const AISettings: React.FC<AISettingsProps> = ({
               </Text>
               <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 14, lineHeight: 20 }}>
                 {theme.isTerminal
-                  ? 'MESSAGES_ENCRYPTED_LOCALLY_NEVER_CLOUD_FULL_USER_CONTROL'
-                  : 'Messages encrypted on your device. Never sent to cloud. Clear history anytime or use Panic Wipe for instant deletion.'}
+                  ? 'MESSAGES_AES256_ENCRYPTED_LOCALLY_NEVER_CLOUD_FULL_USER_CONTROL'
+                  : 'Messages encrypted (AES-256) on your device. Never sent to cloud. Clear history anytime or use Panic Wipe for instant deletion.'}
               </Text>
             </View>
           </View>
         </View>
+
+        {/* CURRENT MEMORY USAGE (Phase 7 Part 2) */}
+        {(() => {
+          // Calculate current conversation memory usage
+          // Determine active response style based on current flavor
+          const currentResponseStyle =
+            effectiveMode === 'HUSH'
+              ? responseStyleHush
+              : effectiveMode === 'CLASSIFIED'
+              ? responseStyleClassified
+              : effectiveMode === 'DISCRETION'
+              ? responseStyleDiscretion
+              : 'quick'; // Fallback for BLOCKER mode
+
+          const systemPromptLength =
+            currentResponseStyle === 'quick' ||
+            currentResponseStyle === 'operator' ||
+            currentResponseStyle === 'warm'
+              ? 'short'
+              : 'long';
+          const currentTokens = estimateConversationTokens(messages, systemPromptLength);
+          const contextWindow = getContextWindowSize(activeMode);
+          const usagePercent = getContextUsagePercent(currentTokens, activeMode);
+          const messageCount = messages.length;
+          const userMessageCount = messages.filter(m => m.role === 'user').length;
+
+          // Determine progress bar color based on usage
+          let progressColor = theme.accent;
+          if (usagePercent >= 95) progressColor = '#FF0000'; // Red
+          else if (usagePercent >= 80) progressColor = '#FF8800'; // Orange
+          else if (usagePercent >= 60) progressColor = '#FFBB00'; // Yellow
+
+          return (
+            <View style={[styles.memoryCard, { backgroundColor: theme.card, marginTop: 20, borderLeftWidth: 3, borderLeftColor: progressColor }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons name="stats-chart" size={20} color={progressColor} />
+                  <Text style={[styles.memoryTitle, { color: theme.text, fontFamily: theme.fontBody, marginLeft: 8 }]}>
+                    {theme.isTerminal ? 'MEMORY_USAGE' : 'Current Memory Usage'}
+                  </Text>
+                </View>
+                <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 13 }}>
+                  {usagePercent.toFixed(0)}%
+                </Text>
+              </View>
+
+              {/* Progress Bar */}
+              <View style={{ height: 8, backgroundColor: theme.divider, borderRadius: 4, overflow: 'hidden', marginBottom: 12 }}>
+                <View style={{ height: '100%', width: `${Math.min(100, usagePercent)}%`, backgroundColor: progressColor, borderRadius: 4 }} />
+              </View>
+
+              {/* Stats */}
+              <Text style={[styles.memorySubtext, { color: theme.subtext, fontFamily: theme.fontBody }]}>
+                {theme.isTerminal
+                  ? `TOKENS: ${currentTokens.toLocaleString()} / ${contextWindow.toLocaleString()} • MESSAGES: ${messageCount} (${userMessageCount} USER)`
+                  : `${currentTokens.toLocaleString()} / ${contextWindow.toLocaleString()} tokens • ${messageCount} messages (${userMessageCount} exchanges)`}
+              </Text>
+
+              {/* Tier-specific messaging */}
+              {subscriptionTier === 'FREE' ? (
+                <>
+                  <View style={{ marginTop: 12, padding: 10, backgroundColor: theme.bg, borderRadius: 8 }}>
+                    <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 13, lineHeight: 18 }}>
+                      {theme.isTerminal
+                        ? 'FREE_TIER_SLIDING_WINDOW_AI_FORGETS_OLD_MESSAGES_AS_NEW_ONES_ARRIVE'
+                        : 'AI forgets old messages as new ones come in (sliding window). Upgrade to Pro for extended memory.'}
+                    </Text>
+                  </View>
+                  {/* Paywall CTA for Free users */}
+                  <TouchableOpacity
+                    style={{
+                      marginTop: 12,
+                      padding: 12,
+                      backgroundColor: theme.accent,
+                      borderRadius: 8,
+                    }}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      triggerPaywall('feature_locked_response_style');
+                      onClose();
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: '#FFFFFF', fontFamily: theme.fontBody, fontSize: 14, fontWeight: '600' }}>
+                        {theme.isTerminal ? 'UPGRADE_TO_PRO' : 'Upgrade to Pro'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  {usagePercent >= 80 ? (
+                    <View style={{ marginTop: 12, padding: 10, backgroundColor: theme.bg, borderRadius: 8 }}>
+                      <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 13, lineHeight: 18 }}>
+                        {theme.isTerminal
+                          ? 'PRO_AUTO_SUMMARIZATION_TRIGGERS_AT_80_PERCENT_OLDER_MESSAGES_COMPRESSED'
+                          : '✨ Pro: Approaching capacity. Older messages will be automatically summarized to maintain performance.'}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={{ marginTop: 12, padding: 10, backgroundColor: theme.bg, borderRadius: 8 }}>
+                      <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 13, lineHeight: 18 }}>
+                        {theme.isTerminal
+                          ? 'PRO_FULL_CONTEXT_AVAILABLE_AUTO_SUMMARIZATION_AT_80_PERCENT'
+                          : '✨ Pro: Full context available. Auto-summarization triggers at 80% capacity.'}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Manual Archive Button (Pro only) */}
+                  {messageCount > 0 && (
+                    <TouchableOpacity
+                      style={{
+                        marginTop: 12,
+                        padding: 12,
+                        backgroundColor: theme.bg,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: theme.divider,
+                      }}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        Alert.alert(
+                          theme.isTerminal ? 'CLEAR_HISTORY' : 'Clear Conversation',
+                          theme.isTerminal
+                            ? 'DELETE_ALL_MESSAGES_PERMANENT_CANNOT_UNDO'
+                            : 'This will permanently delete all messages in this conversation. This cannot be undone.',
+                          [
+                            { text: theme.isTerminal ? 'CANCEL' : 'Cancel', style: 'cancel' },
+                            {
+                              text: theme.isTerminal ? 'DELETE' : 'Clear History',
+                              style: 'destructive',
+                              onPress: () => {
+                                clearHistory();
+                                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                              },
+                            },
+                          ]
+                        );
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="trash-outline" size={18} color={theme.subtext} />
+                        <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 14, marginLeft: 8 }}>
+                          {theme.isTerminal ? 'CLEAR_HISTORY' : 'Clear Conversation History'}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                </>
+              )}
+            </View>
+          );
+        })()}
 
         <Text style={[styles.sectionTitle, { color: theme.text, fontFamily: theme.fontBody, marginTop: 24 }]}>
           {theme.isTerminal ? 'HOW_AI_MEMORY_WORKS' : 'How AI Memory Works'}
@@ -745,8 +905,8 @@ export const AISettings: React.FC<AISettingsProps> = ({
             ]}
           >
             {subscriptionTier === 'FREE'
-              ? 'Free: AI remembers last 3 exchanges • Best for quick questions'
-              : 'Pro: Full context with smart compression • Best for quick questions'}
+              ? 'Free: Limited context (20% of window) • Best for quick questions'
+              : 'Pro: Extended context (80% of window) • Best for quick questions'}
           </Text>
         </View>
 
@@ -778,8 +938,8 @@ export const AISettings: React.FC<AISettingsProps> = ({
             ]}
           >
             {subscriptionTier === 'FREE'
-              ? 'Pro: AI remembers last 5 exchanges • Best for normal conversations'
-              : 'Pro: Extended context with summarization • Best for normal conversations'}
+              ? 'Pro-only: Extended context (80% of window) • Best for normal conversations'
+              : 'Pro: Extended context (80% of window) with summarization • Best for normal conversations'}
           </Text>
         </View>
 
@@ -811,8 +971,8 @@ export const AISettings: React.FC<AISettingsProps> = ({
             ]}
           >
             {subscriptionTier === 'FREE'
-              ? 'Pro: AI remembers last 5 exchanges • Best for long discussions'
-              : 'Pro: Maximum context with summarization • Best for long discussions'}
+              ? 'Pro-only: Extended context (80% of window) • Best for long discussions'
+              : 'Pro: Extended context (80% of window) with summarization • Best for long discussions'}
           </Text>
         </View>
 
@@ -832,11 +992,11 @@ export const AISettings: React.FC<AISettingsProps> = ({
             { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 12, lineHeight: 22 },
           ]}
         >
-          <Text style={{ fontWeight: '600' }}>Free tier:</Text> AI sees only your most recent exchanges (3-5 message pairs). This keeps the app fast and lightweight.
+          <Text style={{ fontWeight: '600' }}>Free tier:</Text> AI uses 20% of the context window for conversation history. Recent exchanges are prioritized; older messages slide out as new ones arrive (sliding window). This keeps the app fast and lightweight.
           {'\n\n'}
-          <Text style={{ fontWeight: '600' }}>Pro tier:</Text> AI can reference your full conversation. When context reaches 80% capacity, older messages are automatically summarized (not deleted) to maintain efficiency.
+          <Text style={{ fontWeight: '600' }}>Pro tier:</Text> AI uses 80% of the context window for conversation history (4x more than Free). When context reaches 80% capacity, older messages are automatically summarized (not deleted) to maintain efficiency.
           {'\n\n'}
-          <Text style={{ fontWeight: '600' }}>Your control:</Text> All messages stay encrypted on your device until you clear them. Use "Clear History" or Panic Wipe to instantly delete conversations.
+          <Text style={{ fontWeight: '600' }}>Your control:</Text> All messages are AES-256 encrypted on your device until you clear them. Use "Clear History" or Panic Wipe to securely delete conversations.
         </Text>
 
         <View

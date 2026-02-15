@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TextInput, KeyboardAvoidingView, Platform, Scro
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useChatStore } from '../state/rootStore';
+import { useShallow } from 'zustand/react/shallow';
 import { CLASSIFIED_THEMES } from '../themes/themes';
 import {
   ClassifiedHeader,
@@ -132,7 +133,10 @@ Expected output: [count] [IP_address] for the top attacker`,
 
 export const ZeroDay: React.FC<ZeroDayProps> = ({ onComplete, onCancel, onViewGallery }) => {
   const classifiedTheme = useChatStore((state) => state.classifiedTheme);
-  const gameProgress = useChatStore((state) => state.gameState.gameProgress.zero_day);
+  // CRITICAL: Use useShallow to prevent re-renders when gameState reference changes
+  const gameProgress = useChatStore(
+    useShallow((state) => state.gameState.gameProgress.zero_day)
+  );
 
   const [screen, setScreen] = useState<ZeroScreen>('challenge');
   const [currentExploit, setCurrentExploit] = useState(1);
