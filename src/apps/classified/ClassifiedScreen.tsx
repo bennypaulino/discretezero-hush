@@ -133,10 +133,11 @@ export const ClassifiedScreen = ({
   const classifiedDiscoveryUsedHints = useChatStore((state) => state.classifiedDiscoveryUsedHints);
   const discoveryHintsEnabled = useChatStore((state) => state.discoveryHintsEnabled);
 
-  // STREAMING STATE (P1.11 Phase 0) - Only subscribe to streamingMessageId (changes rarely)
-  // DON'T subscribe to streamingText (changes 50-200 times per response)
-  // Access streamingText via getState() in renderItem to avoid excessive re-renders
+  // STREAMING STATE (P1.11 Phase 0)
+  // Subscribe to both streamingMessageId and streamingText
+  // Yes, this causes re-renders during streaming, but that's THE POINT - we want to show tokens as they arrive
   const streamingMessageId = useChatStore((state) => state.streamingMessageId);
+  const streamingText = useChatStore((state) => state.streamingText);
 
   const unlockBadge = useChatStore((state) => state.unlockBadge);
 
@@ -669,10 +670,8 @@ Type any protocol keyword to begin.`;
   }), []);
 
   const renderItem = useCallback(({ item }: { item: Message }) => {
-    // STREAMING (P1.11 Phase 0): Access streamingText via getState() to avoid subscription
-    // This prevents 50-200 re-renders per response while still getting latest text
-    const currentStreamingText = useChatStore.getState().streamingText;
-    const displayText = item.id === streamingMessageId ? currentStreamingText : item.text;
+    // STREAMING (P1.11 Phase 0): Use subscribed streamingText to show tokens as they arrive
+    const displayText = item.id === streamingMessageId ? streamingText : item.text;
 
     // TYPING INDICATOR (P1.11 Phase 7): Show typing animation for placeholder messages
     const isPlaceholder = item.role === 'ai' && !displayText.trim() && !item.isComplete;
@@ -701,7 +700,7 @@ Type any protocol keyword to begin.`;
         redactionBlockColor={theme.colors.cardBg}
       />
     );
-  }, [isPurging, classifiedBurnStyle, theme.colors.accent, theme.colors.primary, theme.colors.cardBg]);
+  }, [streamingMessageId, streamingText, isPurging, classifiedBurnStyle, theme.colors.accent, theme.colors.primary, theme.colors.cardBg]);
 
   return (
     <View

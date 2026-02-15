@@ -87,9 +87,11 @@ export const HushScreen = () => {
   const showPostPurchaseCelebration = useChatStore((state) => state.showPostPurchaseCelebration);
   const setShowPostPurchaseCelebration = useChatStore((state) => state.setShowPostPurchaseCelebration);
 
-  // STREAMING STATE (P1.11 Phase 0) - Only subscribe to streamingMessageId (changes rarely)
-  // DON'T subscribe to streamingText (changes 50-200 times per response)
+  // STREAMING STATE (P1.11 Phase 0)
+  // Subscribe to both streamingMessageId and streamingText
+  // Yes, this causes re-renders during streaming, but that's THE POINT - we want to show tokens as they arrive
   const streamingMessageId = useChatStore((state) => state.streamingMessageId);
+  const streamingText = useChatStore((state) => state.streamingText);
 
   // Badge unlock notification
   // CRITICAL: Use useShallow to prevent re-renders when gameState reference changes
@@ -519,10 +521,8 @@ Choose what you need right now.`;
   }), []);
 
   const renderItem = useCallback(({ item }: { item: Message }) => {
-    // STREAMING (P1.11 Phase 0): Access streamingText via getState() to avoid subscription
-    // This prevents 50-200 re-renders per response while still getting latest text
-    const currentStreamingText = useChatStore.getState().streamingText;
-    const displayText = item.id === streamingMessageId ? currentStreamingText : item.text;
+    // STREAMING (P1.11 Phase 0): Use subscribed streamingText to show tokens as they arrive
+    const displayText = item.id === streamingMessageId ? streamingText : item.text;
 
     // TYPING INDICATOR (P1.11 Phase 7): Show typing animation for placeholder messages
     // Placeholder messages have empty text and are waiting for AI response
@@ -540,7 +540,7 @@ Choose what you need right now.`;
     }
 
     return <PrivacyMessage text={displayText} isUser={item.role === 'user'} />;
-  }, [activeTheme.colors.primary]);
+  }, [streamingMessageId, streamingText, activeTheme.colors.primary]);
 
   return (
     // ROOT VIEW: Attach the hook handler here
