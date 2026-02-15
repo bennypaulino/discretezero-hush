@@ -1,7 +1,7 @@
 /**
  * AISettings
  *
- * Handles AI, Performance Modes, Conversation Memory, and Advanced Performance screens.
+ * Handles AI, Performance Modes, and Conversation Memory screens.
  * Includes model download management with progress tracking, resume logic, and cleanup.
  * Storage information is displayed in Performance Modes footer (cross-platform).
  *
@@ -618,39 +618,6 @@ export const AISettings: React.FC<AISettingsProps> = ({
                 qualityBlocked,
                 qualityBlockedReason
               )}
-
-              <View style={[styles.separator, { backgroundColor: theme.divider, marginVertical: 20 }]} />
-
-              <Text
-                style={[
-                  styles.infoText,
-                  { color: theme.subtext, fontFamily: theme.fontBody, lineHeight: 20 },
-                ]}
-              >
-                {theme.isTerminal
-                  ? 'Modes run entirely on your device. You can delete any mode to free up storage.'
-                  : 'Modes run entirely on your device. You can delete any mode to free up storage.'}
-              </Text>
-
-              <TouchableOpacity
-                style={[
-                  styles.upgradeBtn,
-                  { borderWidth: 1, borderColor: theme.divider, marginTop: 16 },
-                ]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  onNavigate('advancedPerformance');
-                }}
-              >
-                <Text
-                  style={[
-                    styles.upgradeBtnText,
-                    { color: theme.text, fontFamily: theme.fontBody },
-                  ]}
-                >
-                  {theme.isTerminal ? 'ADVANCED_SETTINGS' : 'Advanced Settings'}
-                </Text>
-              </TouchableOpacity>
             </>
           )}
 
@@ -1101,21 +1068,6 @@ export const AISettings: React.FC<AISettingsProps> = ({
     </View>
   );
 
-  const renderAdvancedPerformanceScreen = () => (
-    <View style={{ flex: 1 }}>
-      <SettingsSubHeader
-        title={theme.isTerminal ? 'Advanced_Settings' : 'Advanced Settings'}
-        onBack={onGoBack}
-        theme={theme}
-      />
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={[styles.sectionTitle, { color: theme.text, fontFamily: theme.fontBody }]}>
-          {theme.isTerminal ? 'MULTI_MODEL_OPTIMIZATION' : 'Multi-Model Optimization'}
-        </Text>
-      </ScrollView>
-    </View>
-  );
-
   // ============================================
   // MAIN RENDER
   // ============================================
@@ -1123,7 +1075,6 @@ export const AISettings: React.FC<AISettingsProps> = ({
   if (currentScreen === 'ai') return renderAIScreen();
   if (currentScreen === 'performanceModes') return renderPerformanceModesScreen();
   if (currentScreen === 'conversationMemory') return renderConversationMemoryScreen();
-  if (currentScreen === 'advancedPerformance') return renderAdvancedPerformanceScreen();
 
   return null;
 };

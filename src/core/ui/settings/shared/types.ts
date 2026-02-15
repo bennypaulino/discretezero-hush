@@ -24,7 +24,6 @@ export type Screen =
   | 'ai'
   | 'performanceModes'
   | 'conversationMemory'
-  | 'advancedPerformance'
   | 'testing';
 
 /**
@@ -43,8 +42,7 @@ export type SecurityScreen =
 export type AIScreen =
   | 'ai'
   | 'performanceModes'
-  | 'conversationMemory'
-  | 'advancedPerformance';
+  | 'conversationMemory';
 
 /**
  * Appearance-related screens
