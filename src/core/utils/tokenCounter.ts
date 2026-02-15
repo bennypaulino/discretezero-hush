@@ -95,10 +95,11 @@ export function estimateConversationTokens(
 /**
  * Get context window size for performance mode
  *
- * Context window is the maximum tokens the model can process at once:
+ * Context window is the maximum tokens the model can process at once.
+ * All modes use 8K context for memory safety - differentiation is by model quality:
  * - Efficient (Gemma 2B): 8K tokens (~2,000 words, ~10 message pairs)
- * - Balanced (Llama 3.2 3B): 128K tokens (~32,000 words, ~160 message pairs)
- * - Quality (Llama 3.1 8B): 128K tokens (~32,000 words, ~160 message pairs)
+ * - Balanced (Llama 3.2 3B): 8K tokens (better model intelligence)
+ * - Quality (Llama 3.1 8B): 8K tokens (highest model intelligence)
  *
  * @param mode - Current performance mode
  * @returns Context window size in tokens
@@ -106,8 +107,8 @@ export function estimateConversationTokens(
 export function getContextWindowSize(mode: PerformanceMode): number {
   const CONTEXT_WINDOWS: Record<PerformanceMode, number> = {
     efficient: 8192, // Gemma 2B: 8K tokens
-    balanced: 131072, // Llama 3.2 3B: 128K tokens
-    quality: 131072, // Llama 3.1 8B: 128K tokens
+    balanced: 8192, // Llama 3.2 3B: 8K tokens (same context, better model)
+    quality: 8192, // Llama 3.1 8B: 8K tokens (same context, best model)
   };
 
   return CONTEXT_WINDOWS[mode];

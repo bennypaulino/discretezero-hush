@@ -113,7 +113,7 @@ export function BalancedUpgradeToast({ visible, onUpgrade, onDismiss }: Balanced
 
             <View style={styles.benefits}>
               <Text style={styles.benefit}>• Faster responses (30+ t/s vs 22 t/s)</Text>
-              <Text style={styles.benefit}>• Deeper memory (128K context)</Text>
+              <Text style={styles.benefit}>• Smarter AI (3B model vs 2B)</Text>
               <Text style={styles.benefit}>• 2GB download</Text>
             </View>
 
@@ -159,7 +159,7 @@ export function BalancedUpgradeToast({ visible, onUpgrade, onDismiss }: Balanced
 
             <View style={styles.benefits}>
               <Text style={styles.benefit}>• Faster responses (25+ t/s vs 18 t/s)</Text>
-              <Text style={styles.benefit}>• Deeper memory (128K context)</Text>
+              <Text style={styles.benefit}>• Smarter AI (3B model vs 2B)</Text>
               <Text style={styles.benefit}>• 2GB download</Text>
             </View>
 

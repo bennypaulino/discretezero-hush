@@ -137,8 +137,8 @@ const MODEL_PROFILES: Record<string, ModelProfile> = {
     sizeBytes: 2147483648, // ~2GB
 
     // Context & Performance
-    contextWindow: 131072, // 128K context!
-    recommendedContextUsage: 100000, // Leave 28K headroom
+    contextWindow: 8192, // 8K context (same as efficient, memory-safe)
+    recommendedContextUsage: 7000, // Leave ~1K headroom
     avgTokensPerSecond: 20, // Medium speed
 
     // Device Requirements
@@ -180,8 +180,8 @@ const MODEL_PROFILES: Record<string, ModelProfile> = {
     sizeBytes: 5260123136, // ~4.9GB
 
     // Context & Performance
-    contextWindow: 131072, // 128K context
-    recommendedContextUsage: 120000, // Larger model, can push context more
+    contextWindow: 8192, // 8K context (same as efficient, memory-safe)
+    recommendedContextUsage: 7000, // Leave ~1K headroom
     avgTokensPerSecond: 12, // SLOW but high quality
 
     // Device Requirements

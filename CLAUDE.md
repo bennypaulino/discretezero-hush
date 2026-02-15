@@ -12,6 +12,14 @@ This document outlines the development workflow, conventions, and guidelines for
 
 ### Feature Development Workflow
 
+**⚠️ CRITICAL: Always create the branch BEFORE making any code changes!**
+
+Making changes on `develop` then creating a branch is a common mistake. While uncommitted changes will follow you to the new branch, this pollutes your working tree and can lead to confusion. The correct order is:
+
+1. Create branch FIRST
+2. Make changes SECOND
+3. Commit changes THIRD
+
 1. **Create a feature branch from develop:**
    ```bash
    git checkout develop

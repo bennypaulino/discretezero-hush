@@ -929,7 +929,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
               { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 4 },
             ]}
           >
-            Context: 128K tokens
+            Context: 8K tokens • Better AI model (3B)
           </Text>
           <Text
             style={[
@@ -938,8 +938,8 @@ export const AISettings: React.FC<AISettingsProps> = ({
             ]}
           >
             {subscriptionTier === 'FREE'
-              ? 'Pro-only: Extended context (80% of window) • Best for normal conversations'
-              : 'Pro: Extended context (80% of window) with summarization • Best for normal conversations'}
+              ? 'Pro-only: Extended context (80% of window) • Smarter responses than Efficient'
+              : 'Pro: Extended context (80% of window) with summarization • Smarter responses than Efficient'}
           </Text>
         </View>
 
@@ -962,7 +962,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
               { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 4 },
             ]}
           >
-            Context: 128K tokens
+            Context: 8K tokens • Best AI model (8B)
           </Text>
           <Text
             style={[
@@ -971,8 +971,8 @@ export const AISettings: React.FC<AISettingsProps> = ({
             ]}
           >
             {subscriptionTier === 'FREE'
-              ? 'Pro-only: Extended context (80% of window) • Best for long discussions'
-              : 'Pro: Extended context (80% of window) with summarization • Best for long discussions'}
+              ? 'Pro-only: Extended context (80% of window) • Highest intelligence'
+              : 'Pro: Extended context (80% of window) with summarization • Highest intelligence'}
           </Text>
         </View>
 
