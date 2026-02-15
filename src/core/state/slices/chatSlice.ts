@@ -661,10 +661,16 @@ Summary:`;
       // Start streaming state
       get().startStreaming(streamingMessageId);
 
-      // Set 90-second timeout to clear stuck placeholder if streaming fails
-      // PERFORMANCE FIX: Increased from 15s to 90s because AI generation can take 60-70s
-      // on lower-end devices in efficient mode. Timeout was firing prematurely and
-      // deleting placeholder before response completed, causing "Context changed" errors.
+      // DYNAMIC TIMEOUT: Calculate based on estimated response time for this specific request
+      // Uses device capabilities, context size, and performance mode to determine safe timeout
+      // Adds 30-second buffer to account for variability and ensure completion
+      const estimatedTime = budgets.estimatedResponseTime || 60; // Fallback to 60s if unavailable
+      const timeoutDuration = (estimatedTime + 30) * 1000; // Add 30s buffer, convert to ms
+
+      if (__DEV__) {
+        console.log(`[sendMessage] Setting dynamic timeout: ${timeoutDuration / 1000}s (estimated: ${estimatedTime}s + 30s buffer)`);
+      }
+
       const timeoutId = setTimeout(() => {
         const currentState = get();
         // Only clear if this placeholder is still the active streaming message
@@ -693,7 +699,7 @@ Summary:`;
           // Clear streaming state
           get().finishStreaming();
         }
-      }, 90000); // 90 seconds (increased from 15s to accommodate slower AI generation)
+      }, timeoutDuration); // Dynamic timeout based on estimated response time + buffer
 
       // Store timeout ID so it can be cleared on successful completion
       set({ placeholderTimeoutId: timeoutId });
