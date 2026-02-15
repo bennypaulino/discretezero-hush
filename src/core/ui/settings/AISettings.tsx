@@ -746,7 +746,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
               </Text>
               <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 14, lineHeight: 20 }}>
                 {theme.isTerminal
-                  ? 'MESSAGES_AES256_ENCRYPTED_LOCALLY_NEVER_CLOUD_FULL_USER_CONTROL'
+                  ? 'MESSAGES ARE AES256 ENCRYPTED LOCALLY, NEVER CLOUD. FULL USER CONTROL.'
                   : 'Messages encrypted (AES-256) on your device. Never sent to cloud. Clear history anytime or use Panic Wipe for instant deletion.'}
               </Text>
             </View>
@@ -820,7 +820,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
                   return (
                     <Text style={[styles.memorySubtext, { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 6, fontSize: 13 }]}>
                       {theme.isTerminal
-                        ? `EST_${remainingExchanges}_MORE_EXCHANGES_UNTIL_${subscriptionTier === 'FREE' ? 'SLIDING_WINDOW' : 'AUTO_SUMMARY'}`
+                        ? `EST. ${remainingExchanges} MORE EXCHANGE${remainingExchanges === 1 ? '' : 'S'} UNTIL ${subscriptionTier === 'FREE' ? 'SLIDING WINDOW' : 'AUTO SUMMARY'}`
                         : `~${remainingExchanges} more exchange${remainingExchanges === 1 ? '' : 's'} until ${subscriptionTier === 'FREE' ? 'sliding window' : 'auto-summarization'}`}
                     </Text>
                   );
@@ -834,7 +834,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
                   <View style={{ marginTop: 12, padding: 10, backgroundColor: theme.bg, borderRadius: 8 }}>
                     <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 13, lineHeight: 18 }}>
                       {theme.isTerminal
-                        ? 'FREE_TIER_RECENT_MESSAGES_REMEMBERED_OLDEST_FORGOTTEN_AS_NEW_ARRIVE'
+                        ? 'FREE TIER: RECENT MESSAGES REMEMBERED. OLDEST FORGOTTEN AS NEW ARRIVE. UPGRADE TO PRO FOR 4X MORE MEMORY WITH AUTO SUMMARIZATION.'
                         : 'Free tier: Recent messages are remembered. Oldest messages are forgotten as new ones arrive. Upgrade to Pro for 4x more memory with auto-summarization.'}
                     </Text>
                   </View>
@@ -865,7 +865,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
                     <View style={{ marginTop: 12, padding: 10, backgroundColor: theme.bg, borderRadius: 8 }}>
                       <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 13, lineHeight: 18 }}>
                         {theme.isTerminal
-                          ? 'PRO_APPROACHING_CAPACITY_OLDER_MESSAGES_COMPRESSED_TO_SUMMARIES_KEY_CONTEXT_PRESERVED'
+                          ? 'PRO: APPROACHING CAPACITY. OLDER MESSAGES COMPRESSED TO SUMMARIES, KEY CONTEXT PRESERVED.'
                           : '✨ Pro: Approaching capacity. Older messages will be compressed into brief summaries, preserving key context while making room for new conversation.'}
                       </Text>
                     </View>
@@ -873,7 +873,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
                     <View style={{ marginTop: 12, padding: 10, backgroundColor: theme.bg, borderRadius: 8 }}>
                       <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 13, lineHeight: 18 }}>
                         {theme.isTerminal
-                          ? 'PRO_4X_MORE_MEMORY_THAN_FREE_AUTO_SUMMARIZATION_AT_80_PERCENT'
+                          ? 'PRO: 4X MORE MEMORY THAN FREE. AUTO SUMMARIZATION AT 80 PERCENT CAPACITY.'
                           : '✨ Pro: 4x more memory than Free. When you reach 80% capacity, older messages are auto-summarized instead of forgotten.'}
                       </Text>
                     </View>
@@ -944,9 +944,9 @@ export const AISettings: React.FC<AISettingsProps> = ({
         >
           {theme.isTerminal ? (
             <>
-              FREE_TIER_RECENT_MESSAGES_REMEMBERED_OLDEST_FORGOTTEN_AS_NEW_ARRIVE{'\n\n'}
-              PRO_TIER_4X_MORE_MEMORY_OLDER_MESSAGES_SUMMARIZED_NOT_FORGOTTEN{'\n\n'}
-              ALL_MESSAGES_AES256_ENCRYPTED_UNTIL_YOU_DELETE
+              FREE TIER: RECENT MESSAGES REMEMBERED. OLDEST FORGOTTEN AS NEW ARRIVE.{'\n\n'}
+              PRO TIER: 4X MORE MEMORY. OLDER MESSAGES SUMMARIZED, NOT FORGOTTEN.{'\n\n'}
+              YOUR CONTROL: ALL MESSAGES AES256 ENCRYPTED UNTIL YOU DELETE.
             </>
           ) : (
             <>
