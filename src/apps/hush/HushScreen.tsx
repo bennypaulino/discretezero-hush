@@ -497,6 +497,7 @@ Choose what you need right now.`;
 
   const renderItem = useCallback(({ item }: { item: Message }) => {
     // STREAMING (P1.11 Phase 0): Use streaming text for messages being generated
+    // NOTE: streamingMessageId/streamingText accessed via Zustand, updates trigger component re-render
     const displayText = item.id === streamingMessageId ? streamingText : item.text;
 
     // TYPING INDICATOR (P1.11 Phase 7): Show typing animation for placeholder messages
@@ -515,7 +516,7 @@ Choose what you need right now.`;
     }
 
     return <PrivacyMessage text={displayText} isUser={item.role === 'user'} />;
-  }, [streamingMessageId, streamingText, activeTheme.colors.primary]);
+  }, [activeTheme.colors.primary]);
 
   return (
     // ROOT VIEW: Attach the hook handler here

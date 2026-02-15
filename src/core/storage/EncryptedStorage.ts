@@ -30,8 +30,27 @@ declare const __DEV__: boolean;
 
 const ENCRYPTION_KEY_NAME = 'app_encryption_master_key_v1';
 
+// Security: Master key cache TTL (5 minutes)
+const KEY_CACHE_TTL = 5 * 60 * 1000;
+
+/**
+ * Sanitize error for logging - prevents sensitive info disclosure
+ * Only logs error type, not message/stack which may contain crypto details
+ */
+function sanitizeError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.constructor.name; // e.g., "Error", "TypeError"
+  }
+  return 'UnknownError';
+}
+
 // P0 Fix: Master key caching for performance (95% improvement)
-let cachedMasterKey: string | null = null;
+// Security: Cache expires after 5 minutes to limit memory exposure
+interface CachedKey {
+  key: string;
+  expiresAt: number;
+}
+let cachedMasterKey: CachedKey | null = null;
 
 // P0 Fix: Promise cache to prevent race condition in key generation
 let masterKeyPromise: Promise<string> | null = null;
@@ -48,9 +67,11 @@ let masterKeyPromise: Promise<string> | null = null;
  * @returns Master encryption key (base64 string)
  */
 async function getMasterKey(): Promise<string> {
-  // P0 Fix: Return cached key if available (60-120ms savings per call)
-  if (cachedMasterKey) {
-    return cachedMasterKey;
+  const now = Date.now();
+
+  // P0 Fix + Security: Return cached key only if not expired (60-120ms savings + limited exposure)
+  if (cachedMasterKey && now < cachedMasterKey.expiresAt) {
+    return cachedMasterKey.key;
   }
 
   // P0 Fix: Return in-flight promise to prevent concurrent key generation
@@ -81,13 +102,16 @@ async function getMasterKey(): Promise<string> {
         }
       }
 
-      // Cache the key for subsequent calls
-      cachedMasterKey = key;
+      // Cache the key with expiration (security: limit memory exposure window)
+      cachedMasterKey = {
+        key: key,
+        expiresAt: Date.now() + KEY_CACHE_TTL,
+      };
 
       return key;
     } catch (error) {
       if (__DEV__) {
-        console.error('[EncryptedStorage] Failed to get master key:', error);
+        console.error('[EncryptedStorage] Failed to get master key:', sanitizeError(error));
       }
       throw new Error('Failed to initialize encryption');
     } finally {
@@ -138,7 +162,7 @@ async function encrypt(plaintext: string, key: string): Promise<string> {
     return `${ivBase64}:${ciphertextBase64}`;
   } catch (error) {
     if (__DEV__) {
-      console.error('[EncryptedStorage] Encryption failed:', error);
+      console.error('[EncryptedStorage] Encryption failed:', sanitizeError(error));
     }
     throw new Error('Encryption failed');
   }
@@ -187,13 +211,10 @@ function decrypt(ciphertextWithIV: string, key: string): string {
     return plaintext;
   } catch (error) {
     if (__DEV__) {
-      console.error('[EncryptedStorage] Decryption failed:', error);
+      console.error('[EncryptedStorage] Decryption failed:', sanitizeError(error));
     }
-    // P0 Fix: Throw specific error type for better error handling upstream
-    if (error instanceof Error && error.message.includes('Invalid ciphertext format')) {
-      throw new Error(`Decryption failed: ${error.message}`);
-    }
-    throw new Error('Decryption failed: Data may be corrupted or encrypted with different key');
+    // Don't include error details in thrown message (prevents info disclosure)
+    throw new Error('Decryption failed');
   }
 }
 
@@ -228,9 +249,8 @@ export const EncryptedStorage = {
       // P0 Fix: Log decryption failures prominently (not silent)
       console.error(
         `[EncryptedStorage] CRITICAL: getItem failed for key "${key}". ` +
-        `Data may be corrupted or encrypted with different key. ` +
-        `Clearing corrupted data.`,
-        error
+        `Data may be corrupted. Clearing corrupted data.`,
+        sanitizeError(error)
       );
 
       // P0 Fix: Clear corrupted data to prevent repeated failures
@@ -240,7 +260,7 @@ export const EncryptedStorage = {
           console.log(`[EncryptedStorage] Cleared corrupted data for key "${key}"`);
         }
       } catch (clearError) {
-        console.error(`[EncryptedStorage] Failed to clear corrupted data:`, clearError);
+        console.error(`[EncryptedStorage] Failed to clear corrupted data:`, sanitizeError(clearError));
       }
 
       // Return null to prevent app crash
@@ -263,10 +283,10 @@ export const EncryptedStorage = {
       await AsyncStorage.setItem(key, encrypted);
     } catch (error) {
       if (__DEV__) {
-        console.error(`[EncryptedStorage] setItem failed for key "${key}":`, error);
+        console.error(`[EncryptedStorage] setItem failed for key "${key}":`, sanitizeError(error));
       }
-      // Throw error on write failure - important to know if storage is broken
-      throw error;
+      // Throw generic error (don't expose storage implementation details)
+      throw new Error('Storage write failed');
     }
   },
 
@@ -280,7 +300,7 @@ export const EncryptedStorage = {
       await AsyncStorage.removeItem(key);
     } catch (error) {
       if (__DEV__) {
-        console.error(`[EncryptedStorage] removeItem failed for key "${key}":`, error);
+        console.error(`[EncryptedStorage] removeItem failed for key "${key}":`, sanitizeError(error));
       }
       // Don't throw on delete failure - item might not exist
     }
@@ -321,6 +341,6 @@ export async function clearEncryptionKey(): Promise<void> {
 
     console.log('[EncryptedStorage] Encryption key cleared (DEV ONLY)');
   } catch (error) {
-    console.error('[EncryptedStorage] Failed to clear key:', error);
+    console.error('[EncryptedStorage] Failed to clear key:', sanitizeError(error));
   }
 }

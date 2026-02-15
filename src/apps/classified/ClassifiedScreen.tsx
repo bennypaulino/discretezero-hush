@@ -644,6 +644,7 @@ Type any protocol keyword to begin.`;
 
   const renderItem = useCallback(({ item }: { item: Message }) => {
     // STREAMING (P1.11 Phase 0): Use streaming text for messages being generated
+    // NOTE: streamingMessageId/streamingText accessed via Zustand, updates trigger component re-render
     const displayText = item.id === streamingMessageId ? streamingText : item.text;
 
     // TYPING INDICATOR (P1.11 Phase 7): Show typing animation for placeholder messages
@@ -673,7 +674,7 @@ Type any protocol keyword to begin.`;
         redactionBlockColor={theme.colors.cardBg}
       />
     );
-  }, [isPurging, classifiedBurnStyle, theme.colors.accent, theme.colors.primary, theme.colors.cardBg, streamingMessageId, streamingText]);
+  }, [isPurging, classifiedBurnStyle, theme.colors.accent, theme.colors.primary, theme.colors.cardBg]);
 
   return (
     <View

@@ -801,8 +801,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
                     }}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name="star" size={18} color="#FFFFFF" />
-                      <Text style={{ color: '#FFFFFF', fontFamily: theme.fontBody, fontSize: 14, fontWeight: '600', marginLeft: 8 }}>
+                      <Text style={{ color: '#FFFFFF', fontFamily: theme.fontBody, fontSize: 14, fontWeight: '600' }}>
                         {theme.isTerminal ? 'UPGRADE_TO_PRO' : 'Upgrade to Pro'}
                       </Text>
                     </View>

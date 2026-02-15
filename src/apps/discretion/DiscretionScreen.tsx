@@ -236,6 +236,7 @@ export const DiscretionScreen = () => {
 
   const renderItem = useCallback(({ item }: { item: any }) => {
     // STREAMING (P1.11 Phase 0): Use streaming text for messages being generated
+    // NOTE: streamingMessageId/streamingText accessed via Zustand, updates trigger component re-render
     const displayText = item.id === streamingMessageId ? streamingText : item.text;
     const cleanContent = stripEmojis(displayText);
     const isUser = item.role === 'user';
@@ -278,7 +279,7 @@ export const DiscretionScreen = () => {
         </View>
       </PrivacyBlock>
     );
-  }, [privacyBlurEnabled, handleGlobalDoubleTap, THEME.userBubble, THEME.accent, streamingMessageId, streamingText, appTheme.colors.primary]);
+  }, [privacyBlurEnabled, handleGlobalDoubleTap, THEME.userBubble, THEME.accent, appTheme.colors.primary]);
 
   return (
     <View
