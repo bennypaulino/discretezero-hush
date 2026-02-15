@@ -973,12 +973,18 @@ Summary:`;
   /**
    * Append a token to the streaming text
    * Called for each token received from AI
+   *
+   * PERFORMANCE FIX: Use direct set() syntax instead of function-based set()
+   * Function-based set((state) => ({ ... })) creates NEW references for ALL state properties,
+   * triggering ALL selective subscriptions to re-check (even if values unchanged).
+   * Direct set({ ... }) only updates specified property references.
    */
   appendStreamingToken: (token: string) => {
-    set((state) => ({
+    const state = get();
+    set({
       streamingText: state.streamingText + token,
       streamingTokenCount: state.streamingTokenCount + 1,
-    }));
+    });
   },
 
   /**

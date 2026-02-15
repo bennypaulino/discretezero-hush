@@ -19,15 +19,16 @@ import type { AppFlavor } from '../../config';
  * ```
  */
 export const useFilteredMessages = (flavor: AppFlavor) => {
-  const {
-    messages,
-    isDecoyMode,
-    decoyBurned,
-    hushDecoyPreset,
-    classifiedDecoyPreset,
-    customDecoyHushMessages,
-    customDecoyClassifiedMessages,
-  } = useChatStore();
+  // PERFORMANCE FIX: Use selective subscriptions instead of destructuring
+  // Destructuring subscribes to ENTIRE store, causing re-renders on ANY state change
+  // Selective subscriptions only re-render when specific values change
+  const messages = useChatStore((state) => state.messages);
+  const isDecoyMode = useChatStore((state) => state.isDecoyMode);
+  const decoyBurned = useChatStore((state) => state.decoyBurned);
+  const hushDecoyPreset = useChatStore((state) => state.hushDecoyPreset);
+  const classifiedDecoyPreset = useChatStore((state) => state.classifiedDecoyPreset);
+  const customDecoyHushMessages = useChatStore((state) => state.customDecoyHushMessages);
+  const customDecoyClassifiedMessages = useChatStore((state) => state.customDecoyClassifiedMessages);
 
   return useMemo(() => {
     // Real mode - filter real messages by context
