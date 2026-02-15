@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useChatStore, getBadgeTierDisplayName, BadgeId } from '../state/rootStore';
+import { useShallow } from 'zustand/react/shallow';
 import { HUSH_THEMES, CLASSIFIED_THEMES, DISCRETION_THEMES } from '../themes/themes';
 import { CURRENT_FLAVOR, AppFlavor } from '../../config';
 
@@ -66,7 +67,10 @@ const BADGE_DEFINITIONS: Record<string, { name: string; description: string; tie
 
 export function BadgeUnlockModal({ visible, onClose, onViewGallery }: BadgeUnlockModalProps) {
   // Access newlyUnlockedBadge from gameState (nested property)
-  const newlyUnlockedBadge = useChatStore((state) => state.gameState?.newlyUnlockedBadge);
+  // CRITICAL: Use useShallow to prevent re-renders when gameState reference changes
+  const newlyUnlockedBadge = useChatStore(
+    useShallow((state) => state.gameState?.newlyUnlockedBadge)
+  );
   const { hushTheme, classifiedTheme, discretionTheme, flavor } = useChatStore();
 
   if (__DEV__) {

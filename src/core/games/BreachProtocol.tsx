@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Tou
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useChatStore } from '../state/rootStore';
+import { useShallow } from 'zustand/react/shallow';
 import { CLASSIFIED_THEMES } from '../themes/themes';
 import {
   ClassifiedHeader,
@@ -103,7 +104,10 @@ Use passphrases: "correct-horse-battery-staple"`,
 
 export const BreachProtocol: React.FC<BreachProtocolProps> = ({ onComplete, onCancel, onViewGallery }) => {
   const classifiedTheme = useChatStore((state) => state.classifiedTheme);
-  const gameProgress = useChatStore((state) => state.gameState.gameProgress.breach_protocol);
+  // CRITICAL: Use useShallow to prevent re-renders when gameState reference changes
+  const gameProgress = useChatStore(
+    useShallow((state) => state.gameState.gameProgress.breach_protocol)
+  );
 
   const [screen, setScreen] = useState<BreachScreen>('layer');
   const [currentLayer, setCurrentLayer] = useState(1);
