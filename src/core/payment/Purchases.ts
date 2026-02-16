@@ -30,10 +30,12 @@ if (__DEV__) {
   console.log('[Purchases] Using hardcoded test API keys');
 }
 
-// Product identifiers (match RevenueCat dashboard)
+// Product identifiers
+// NOTE: Test Store uses simple IDs ('monthly', 'yearly')
+// Production will use: 'discretezero_hush_pro_monthly', 'discretezero_hush_pro_annual'
 const PRODUCT_IDS = {
-  MONTHLY: 'discretezero_hush_pro_monthly',
-  YEARLY: 'discretezero_hush_pro_annual',
+  MONTHLY: 'monthly',
+  YEARLY: 'yearly',
 } as const;
 
 // ============================================================================
