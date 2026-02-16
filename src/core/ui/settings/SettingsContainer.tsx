@@ -316,12 +316,10 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
       {subscriptionTier === 'FREE' && revenueCatUserId && (
         <View style={[styles.section, { backgroundColor: theme.card, paddingHorizontal: 20, paddingVertical: 16, borderRadius: 12 }]}>
           <Text style={[styles.sectionTitle, { color: theme.text, fontFamily: theme.fontHeader }]}>
-            {theme.isTerminal ? 'WEB_PURCHASE_PORTAL' : 'Web Purchase'}
+            Web Purchase
           </Text>
           <Text style={{ color: theme.subtext, fontSize: 14, marginBottom: 16, fontFamily: theme.fontBody }}>
-            {theme.isTerminal
-              ? 'ALTERNATIVE ACQUISITION METHOD. DIRECT PAYMENT VIA STRIPE. NO APP STORE TRACKING.'
-              : 'Purchase directly via Stripe. Not tied to your Apple ID. More private.'}
+            Purchase directly via Stripe. Not tied to your Apple ID. More private.
           </Text>
           <TouchableOpacity
             onPress={() => {
@@ -338,7 +336,7 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
             }}
           >
             <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600', fontFamily: theme.fontBody }}>
-              {theme.isTerminal ? '[ INITIATE WEB CHECKOUT ]' : 'Upgrade via Web'}
+              Upgrade via Web
             </Text>
           </TouchableOpacity>
           <View style={{
@@ -350,7 +348,7 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
           }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
               <Text style={{ color: theme.subtext, fontSize: 11, fontFamily: theme.fontBody }}>
-                {theme.isTerminal ? 'USER_IDENTIFIER:' : 'Your User ID:'}
+                Your User ID:
               </Text>
               <TouchableOpacity
                 onPress={async () => {
@@ -380,7 +378,7 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
                   fontWeight: '600',
                   fontFamily: theme.fontBody,
                 }}>
-                  {userIdCopied ? (theme.isTerminal ? 'COPIED' : 'Copied!') : (theme.isTerminal ? 'COPY' : 'Copy')}
+                  {userIdCopied ? 'Copied!' : 'Copy'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -396,9 +394,7 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
               {revenueCatUserId}
             </Text>
             <Text style={{ color: theme.subtext, fontSize: 11, fontFamily: theme.fontBody }}>
-              {theme.isTerminal
-                ? 'PROVIDE THIS IDENTIFIER DURING WEB CHECKOUT. REQUIRED TO LINK SUBSCRIPTION TO THIS DEVICE.'
-                : 'You'll need to enter this ID on the web checkout page to link your subscription to this device.'}
+              You'll need to enter this ID on the web checkout page to link your subscription to this device.
             </Text>
           </View>
         </View>
