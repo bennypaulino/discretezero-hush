@@ -320,8 +320,8 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
           </Text>
           <Text style={{ color: theme.subtext, fontSize: 14, marginBottom: 16, fontFamily: theme.fontBody }}>
             {theme.isTerminal
-              ? 'ALTERNATIVE ACQUISITION METHOD. REDUCED FEES. ENHANCED OPSEC.'
-              : 'Prefer to purchase via web? Lower fees, more privacy.'}
+              ? 'ALTERNATIVE ACQUISITION METHOD. BYPASS APP STORE FEES. DIRECT PAYMENT VIA STRIPE.'
+              : 'Purchase directly via Stripe. Same price, no Apple/Google fees. More private.'}
           </Text>
           <TouchableOpacity
             onPress={() => {
@@ -397,8 +397,8 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
             </Text>
             <Text style={{ color: theme.subtext, fontSize: 11, fontFamily: theme.fontBody }}>
               {theme.isTerminal
-                ? 'ENTER THIS IDENTIFIER DURING WEB CHECKOUT TO LINK SUBSCRIPTION.'
-                : 'Enter this ID during web checkout to link your purchase'}
+                ? 'PROVIDE THIS IDENTIFIER DURING WEB CHECKOUT. REQUIRED TO LINK SUBSCRIPTION TO THIS DEVICE.'
+                : 'You'll need to enter this ID on the web checkout page to link your subscription to this device.'}
             </Text>
           </View>
         </View>
