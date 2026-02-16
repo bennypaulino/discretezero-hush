@@ -86,7 +86,7 @@ DiscreteZero/
 │   ├── core/
 │   │   ├── animations/         # Clear animations, effects
 │   │   ├── data/               # Static data (decoy presets, etc.)
-│   │   ├── engine/             # AI engines (LocalAI, GroqAI, MockAI)
+│   │   ├── engine/             # AI engines (LocalAI, MockAI)
 │   │   ├── games/              # Interactive games (Interrogation, Breathe, etc.)
 │   │   ├── hooks/              # Custom React hooks
 │   │   ├── modules/            # Native module bridges

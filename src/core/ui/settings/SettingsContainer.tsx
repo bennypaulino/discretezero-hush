@@ -13,7 +13,7 @@
  *
  * Sub-components:
  * - SecuritySettings: security, passcodeSetup, duressSetup, changePasscode, decoyPreset
- * - AISettings: ai, performanceModes, conversationMemory, storageManagement, advancedPerformance
+ * - AISettings: ai, performanceModes, conversationMemory
  * - AppearanceSettings: appearance, clearStyle, responseStyle
  * - AboutSettings: about, achievementGallery, privacyVerification, privacyDashboard
  * - TestingSettings: testing (DEV only)
@@ -135,9 +135,7 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
         return 'about';
       } else if (
         current === 'performanceModes' ||
-        current === 'conversationMemory' ||
-        current === 'storageManagement' ||
-        current === 'advancedPerformance'
+        current === 'conversationMemory'
       ) {
         return 'ai';
       } else {
@@ -546,8 +544,6 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
         'ai',
         'performanceModes',
         'conversationMemory',
-        'storageManagement',
-        'advancedPerformance',
       ].includes(currentScreen)
     ) {
       return (

@@ -1,5 +1,6 @@
 import * as Device from 'expo-device';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Paths } from 'expo-file-system';
 import type { PerformanceMode, DeviceCapabilities } from '../state/rootStore';
 
 /**
@@ -182,6 +183,46 @@ export async function hasStorageForMode(mode: PerformanceMode): Promise<boolean>
     }
     return false;
   }
+}
+
+/**
+ * Calculate total storage used by downloaded AI models
+ *
+ * Sums up the file sizes of all .gguf model files that have been downloaded.
+ *
+ * @returns Total bytes used by downloaded models
+ *
+ * @example
+ * const totalBytes = await getModelStorageUsed();
+ * const formatted = formatBytes(totalBytes); // "3.6 GB"
+ */
+export async function getModelStorageUsed(): Promise<number> {
+  const modelFiles = [
+    'gemma-2-2b-it-Q4_K_M.gguf',
+    'Llama-3.2-3B-Instruct-Q4_K_M.gguf',
+    'Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf',
+  ];
+
+  let totalBytes = 0;
+  for (const fileName of modelFiles) {
+    const modelPath = `${Paths.document.uri}models/${fileName}`;
+
+    try {
+      const fileInfo = await FileSystem.getInfoAsync(modelPath);
+
+      // Validate file exists and has valid size
+      if (fileInfo.exists && 'size' in fileInfo && typeof fileInfo.size === 'number' && fileInfo.size > 0) {
+        totalBytes += fileInfo.size;
+      }
+    } catch (e) {
+      // File doesn't exist or can't be accessed, skip it
+      if (__DEV__) {
+        console.log(`Model file not found or inaccessible: ${fileName}`);
+      }
+    }
+  }
+
+  return totalBytes;
 }
 
 /**

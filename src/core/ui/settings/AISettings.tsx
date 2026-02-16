@@ -1,17 +1,19 @@
 /**
  * AISettings
  *
- * Handles AI, Performance Modes, Conversation Memory, Storage Management, and Advanced Performance screens.
+ * Handles AI, Performance Modes, and Conversation Memory screens.
  * Includes model download management with progress tracking, resume logic, and cleanup.
+ * Storage information is displayed in Performance Modes footer (cross-platform).
  *
  * Phase 4 of P1.4 SettingsModal refactor.
  */
 
 import React, { useRef, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Platform, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as Device from 'expo-device';
+import * as IntentLauncher from 'expo-intent-launcher';
 import { useChatStore } from '../../state/rootStore';
 import type { AppFlavor } from '../../state/types';
 import { SettingsSubHeader } from './shared/SettingsSubHeader';
@@ -21,6 +23,7 @@ import { downloadModel, deleteModel, cancelDownload, hasActiveDownload } from '.
 import { getBalancedWarning, getQualityWarning, canDownloadQuality } from '../../utils/deviceCapabilities';
 import type { AIScreen } from './shared/types';
 import { estimateConversationTokens, getContextWindowSize, getContextUsagePercent } from '../../utils/tokenCounter';
+import { useStorageSummary } from '../../hooks/useStorageSummary';
 
 interface AISettingsProps {
   currentScreen: AIScreen;
@@ -62,6 +65,9 @@ export const AISettings: React.FC<AISettingsProps> = ({
   const responseStyleClassified = useChatStore((state) => state.responseStyleClassified);
   const responseStyleDiscretion = useChatStore((state) => state.responseStyleDiscretion);
   const clearHistory = useChatStore((state) => state.clearHistory);
+
+  // Storage summary (always called at top level for React Hooks rules)
+  const storage = useStorageSummary();
 
   // Download resume tracking
   const downloadResumeInProgress = useRef(false);
@@ -244,15 +250,6 @@ export const AISettings: React.FC<AISettingsProps> = ({
               label={theme.isTerminal ? 'Conversation_Memory' : 'Conversation Memory'}
               sublabel={theme.isTerminal ? 'CONTEXT_WINDOW' : 'How memory works'}
               onPress={() => onNavigate('conversationMemory')}
-              theme={theme}
-              effectiveMode={effectiveMode}
-              classifiedTheme={classifiedTheme}
-            />
-            <SettingsNavRow
-              icon="file-tray"
-              label={theme.isTerminal ? 'Storage_Management' : 'Storage Management'}
-              sublabel={theme.isTerminal ? 'MODEL_FILES' : 'Manage downloads'}
-              onPress={() => onNavigate('storageManagement')}
               theme={theme}
               effectiveMode={effectiveMode}
               classifiedTheme={classifiedTheme}
@@ -587,7 +584,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
                 'flash',
                 theme.isTerminal ? 'EFFICIENT_MODE' : 'Efficient Mode',
                 '1.7GB (bundled)',
-                '★★★☆☆',
+                '★★★★★',
                 '★★★☆☆',
                 theme.isTerminal
                   ? 'Fastest speed, smallest size, universal compatibility'
@@ -612,7 +609,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
                 'trophy',
                 theme.isTerminal ? 'QUALITY_MODE' : 'Quality Mode',
                 '6GB',
-                '★★☆☆☆',
+                '★★★☆☆',
                 '★★★★★',
                 theme.isTerminal
                   ? 'Highest intelligence, requires powerful hardware'
@@ -621,39 +618,6 @@ export const AISettings: React.FC<AISettingsProps> = ({
                 qualityBlocked,
                 qualityBlockedReason
               )}
-
-              <View style={[styles.separator, { backgroundColor: theme.divider, marginVertical: 20 }]} />
-
-              <Text
-                style={[
-                  styles.infoText,
-                  { color: theme.subtext, fontFamily: theme.fontBody, lineHeight: 20 },
-                ]}
-              >
-                {theme.isTerminal
-                  ? 'Modes run entirely on your device. You can delete any mode to free up storage.'
-                  : 'Modes run entirely on your device. You can delete any mode to free up storage.'}
-              </Text>
-
-              <TouchableOpacity
-                style={[
-                  styles.upgradeBtn,
-                  { borderWidth: 1, borderColor: theme.divider, marginTop: 16 },
-                ]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  onNavigate('advancedPerformance');
-                }}
-              >
-                <Text
-                  style={[
-                    styles.upgradeBtnText,
-                    { color: theme.text, fontFamily: theme.fontBody },
-                  ]}
-                >
-                  {theme.isTerminal ? 'ADVANCED_SETTINGS' : 'Advanced Settings'}
-                </Text>
-              </TouchableOpacity>
             </>
           )}
 
@@ -684,6 +648,80 @@ export const AISettings: React.FC<AISettingsProps> = ({
               </TouchableOpacity>
             </>
           )}
+
+          {/* Storage Summary Footer - Pro users only */}
+          {isPro && (
+            <>
+              <View style={[styles.separator, { backgroundColor: theme.divider, marginVertical: 20 }]} />
+              <View style={[styles.infoSection, { paddingTop: 4 }]}>
+                <Text style={[styles.sectionHeader, { color: theme.text, fontFamily: theme.fontBody, fontSize: 16, fontWeight: '600', marginBottom: 12 }]}>
+                  {theme.isTerminal ? 'STORAGE' : 'Storage'}
+                </Text>
+
+                {storage.loading ? (
+                  <Text style={[styles.infoText, { color: theme.subtext, fontFamily: theme.fontBody }]}>
+                    {theme.isTerminal ? 'LOADING_STORAGE_INFO' : 'Loading storage info'}...
+                  </Text>
+                ) : (
+                  <>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <Text style={[styles.infoText, { color: theme.subtext, fontFamily: theme.fontBody }]}>
+                        {theme.isTerminal ? 'AI_MODELS' : 'AI Models'}:
+                      </Text>
+                      <Text style={[styles.infoText, { color: theme.text, fontFamily: theme.fontBody, fontWeight: '600' }]}>
+                        {storage.modelsUsedFormatted}
+                      </Text>
+                    </View>
+
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
+                      <Text style={[styles.infoText, { color: theme.subtext, fontFamily: theme.fontBody }]}>
+                        {theme.isTerminal ? 'DEVICE_FREE' : 'Device Free'}:
+                      </Text>
+                      <Text style={[styles.infoText, { color: theme.text, fontFamily: theme.fontBody, fontWeight: '600' }]}>
+                        {storage.deviceFreeFormatted}
+                      </Text>
+                    </View>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.upgradeBtn,
+                        { backgroundColor: 'transparent', borderWidth: 1, borderColor: theme.divider, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+                      ]}
+                      onPress={async () => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+                        try {
+                          if (Platform.OS === 'ios') {
+                            await Linking.openSettings();
+                          } else {
+                            // Android - open app details settings
+                            await IntentLauncher.startActivityAsync(
+                              IntentLauncher.ActivityAction.APPLICATION_DETAILS_SETTINGS
+                            );
+                          }
+                        } catch (error) {
+                          if (__DEV__) {
+                            console.error('Failed to open storage settings:', error);
+                          }
+                          Alert.alert(
+                            theme.isTerminal ? 'ERROR' : 'Error',
+                            theme.isTerminal
+                              ? 'FAILED_TO_OPEN_SETTINGS'
+                              : 'Failed to open storage settings'
+                          );
+                        }
+                      }}
+                    >
+                      <Ionicons name="settings-outline" size={18} color={theme.accent} />
+                      <Text style={[styles.upgradeBtnText, { color: theme.text, fontFamily: theme.fontBody }]}>
+                        {theme.isTerminal ? 'OPEN_STORAGE_SETTINGS' : 'Open Storage Settings'}
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            </>
+          )}
         </ScrollView>
       </View>
     );
@@ -712,7 +750,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
               </Text>
               <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 14, lineHeight: 20 }}>
                 {theme.isTerminal
-                  ? 'MESSAGES_AES256_ENCRYPTED_LOCALLY_NEVER_CLOUD_FULL_USER_CONTROL'
+                  ? 'MESSAGES ARE AES256 ENCRYPTED LOCALLY, NEVER CLOUD. FULL USER CONTROL.'
                   : 'Messages encrypted (AES-256) on your device. Never sent to cloud. Clear history anytime or use Panic Wipe for instant deletion.'}
               </Text>
             </View>
@@ -772,9 +810,27 @@ export const AISettings: React.FC<AISettingsProps> = ({
               {/* Stats */}
               <Text style={[styles.memorySubtext, { color: theme.subtext, fontFamily: theme.fontBody }]}>
                 {theme.isTerminal
-                  ? `TOKENS: ${currentTokens.toLocaleString()} / ${contextWindow.toLocaleString()} • MESSAGES: ${messageCount} (${userMessageCount} USER)`
+                  ? `CONVERSATION: ${currentTokens.toLocaleString()} / ${contextWindow.toLocaleString()} TOKENS • ${messageCount} MESSAGES (${userMessageCount} EXCHANGES)`
                   : `${currentTokens.toLocaleString()} / ${contextWindow.toLocaleString()} tokens • ${messageCount} messages (${userMessageCount} exchanges)`}
               </Text>
+
+              {/* Estimated remaining capacity */}
+              {(() => {
+                const avgTokensPerExchange = userMessageCount > 0 ? currentTokens / userMessageCount : 100;
+                const remainingTokens = contextWindow - currentTokens;
+                const remainingExchanges = Math.floor(remainingTokens / avgTokensPerExchange);
+
+                if (remainingExchanges > 0 && remainingExchanges < 50) {
+                  return (
+                    <Text style={[styles.memorySubtext, { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 6, fontSize: 13 }]}>
+                      {theme.isTerminal
+                        ? `EST. ${remainingExchanges} MORE EXCHANGE${remainingExchanges === 1 ? '' : 'S'} UNTIL ${subscriptionTier === 'FREE' ? 'SLIDING WINDOW' : 'AUTO SUMMARY'}`
+                        : `~${remainingExchanges} more exchange${remainingExchanges === 1 ? '' : 's'} until ${subscriptionTier === 'FREE' ? 'sliding window' : 'auto-summarization'}`}
+                    </Text>
+                  );
+                }
+                return null;
+              })()}
 
               {/* Tier-specific messaging */}
               {subscriptionTier === 'FREE' ? (
@@ -782,8 +838,8 @@ export const AISettings: React.FC<AISettingsProps> = ({
                   <View style={{ marginTop: 12, padding: 10, backgroundColor: theme.bg, borderRadius: 8 }}>
                     <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 13, lineHeight: 18 }}>
                       {theme.isTerminal
-                        ? 'FREE_TIER_SLIDING_WINDOW_AI_FORGETS_OLD_MESSAGES_AS_NEW_ONES_ARRIVE'
-                        : 'AI forgets old messages as new ones come in (sliding window). Upgrade to Pro for extended memory.'}
+                        ? 'FREE TIER: RECENT MESSAGES REMEMBERED. OLDEST FORGOTTEN AS NEW ARRIVE. UPGRADE TO PRO FOR 4X MORE MEMORY WITH AUTO SUMMARIZATION.'
+                        : 'Free tier: Recent messages are remembered. Oldest messages are forgotten as new ones arrive. Upgrade to Pro for 4x more memory with auto-summarization.'}
                     </Text>
                   </View>
                   {/* Paywall CTA for Free users */}
@@ -813,16 +869,16 @@ export const AISettings: React.FC<AISettingsProps> = ({
                     <View style={{ marginTop: 12, padding: 10, backgroundColor: theme.bg, borderRadius: 8 }}>
                       <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 13, lineHeight: 18 }}>
                         {theme.isTerminal
-                          ? 'PRO_AUTO_SUMMARIZATION_TRIGGERS_AT_80_PERCENT_OLDER_MESSAGES_COMPRESSED'
-                          : '✨ Pro: Approaching capacity. Older messages will be automatically summarized to maintain performance.'}
+                          ? 'PRO: APPROACHING CAPACITY. OLDER MESSAGES COMPRESSED TO SUMMARIES, KEY CONTEXT PRESERVED.'
+                          : '✨ Pro: Approaching capacity. Older messages will be compressed into brief summaries, preserving key context while making room for new conversation.'}
                       </Text>
                     </View>
                   ) : (
                     <View style={{ marginTop: 12, padding: 10, backgroundColor: theme.bg, borderRadius: 8 }}>
                       <Text style={{ color: theme.subtext, fontFamily: theme.fontBody, fontSize: 13, lineHeight: 18 }}>
                         {theme.isTerminal
-                          ? 'PRO_FULL_CONTEXT_AVAILABLE_AUTO_SUMMARIZATION_AT_80_PERCENT'
-                          : '✨ Pro: Full context available. Auto-summarization triggers at 80% capacity.'}
+                          ? 'PRO: 4X MORE MEMORY THAN FREE. AUTO SUMMARIZATION AT 80 PERCENT CAPACITY.'
+                          : '✨ Pro: 4x more memory than Free. When you reach 80% capacity, older messages are auto-summarized instead of forgotten.'}
                       </Text>
                     </View>
                   )}
@@ -873,109 +929,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
           );
         })()}
 
-        <Text style={[styles.sectionTitle, { color: theme.text, fontFamily: theme.fontBody, marginTop: 24 }]}>
-          {theme.isTerminal ? 'HOW_AI_MEMORY_WORKS' : 'How AI Memory Works'}
-        </Text>
-
-        {/* Efficient Mode */}
-        <View style={[styles.memoryCard, { backgroundColor: theme.card, marginTop: 20 }]}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Ionicons name="flash" size={20} color={theme.accent} />
-            <Text
-              style={[
-                styles.memoryTitle,
-                { color: theme.text, fontFamily: theme.fontBody, marginLeft: 8 },
-              ]}
-            >
-              Efficient Mode
-            </Text>
-          </View>
-          <Text
-            style={[
-              styles.memorySubtext,
-              { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 4 },
-            ]}
-          >
-            Context: 8K tokens
-          </Text>
-          <Text
-            style={[
-              styles.memoryDesc,
-              { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 4 },
-            ]}
-          >
-            {subscriptionTier === 'FREE'
-              ? 'Free: Limited context (20% of window) • Best for quick questions'
-              : 'Pro: Extended context (80% of window) • Best for quick questions'}
-          </Text>
-        </View>
-
-        {/* Balanced Mode */}
-        <View style={[styles.memoryCard, { backgroundColor: theme.card, marginTop: 12 }]}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Ionicons name="swap-horizontal-outline" size={20} color={theme.accent} />
-            <Text
-              style={[
-                styles.memoryTitle,
-                { color: theme.text, fontFamily: theme.fontBody, marginLeft: 8 },
-              ]}
-            >
-              Balanced Mode {subscriptionTier === 'FREE' && '(Pro)'}
-            </Text>
-          </View>
-          <Text
-            style={[
-              styles.memorySubtext,
-              { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 4 },
-            ]}
-          >
-            Context: 8K tokens • Better AI model (3B)
-          </Text>
-          <Text
-            style={[
-              styles.memoryDesc,
-              { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 4 },
-            ]}
-          >
-            {subscriptionTier === 'FREE'
-              ? 'Pro-only: Extended context (80% of window) • Smarter responses than Efficient'
-              : 'Pro: Extended context (80% of window) with summarization • Smarter responses than Efficient'}
-          </Text>
-        </View>
-
-        {/* Quality Mode */}
-        <View style={[styles.memoryCard, { backgroundColor: theme.card, marginTop: 12 }]}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Ionicons name="trophy" size={20} color={theme.accent} />
-            <Text
-              style={[
-                styles.memoryTitle,
-                { color: theme.text, fontFamily: theme.fontBody, marginLeft: 8 },
-              ]}
-            >
-              Quality Mode {subscriptionTier === 'FREE' && '(Pro)'}
-            </Text>
-          </View>
-          <Text
-            style={[
-              styles.memorySubtext,
-              { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 4 },
-            ]}
-          >
-            Context: 8K tokens • Best AI model (8B)
-          </Text>
-          <Text
-            style={[
-              styles.memoryDesc,
-              { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 4 },
-            ]}
-          >
-            {subscriptionTier === 'FREE'
-              ? 'Pro-only: Extended context (80% of window) • Highest intelligence'
-              : 'Pro: Extended context (80% of window) with summarization • Highest intelligence'}
-          </Text>
-        </View>
-
+        {/* Simplified Memory Explanation */}
         <View style={[styles.separator, { backgroundColor: theme.divider, marginVertical: 24 }]} />
 
         <Text
@@ -984,7 +938,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
             { color: theme.text, fontFamily: theme.fontBody, fontSize: 16, fontWeight: '600' },
           ]}
         >
-          {theme.isTerminal ? 'MEMORY_EXPLAINED' : 'Memory Explained'}
+          {theme.isTerminal ? 'HOW_MEMORY_WORKS' : 'How Memory Works'}
         </Text>
         <Text
           style={[
@@ -992,83 +946,33 @@ export const AISettings: React.FC<AISettingsProps> = ({
             { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 12, lineHeight: 22 },
           ]}
         >
-          <Text style={{ fontWeight: '600' }}>Free tier:</Text> AI uses 20% of the context window for conversation history. Recent exchanges are prioritized; older messages slide out as new ones arrive (sliding window). This keeps the app fast and lightweight.
-          {'\n\n'}
-          <Text style={{ fontWeight: '600' }}>Pro tier:</Text> AI uses 80% of the context window for conversation history (4x more than Free). When context reaches 80% capacity, older messages are automatically summarized (not deleted) to maintain efficiency.
-          {'\n\n'}
-          <Text style={{ fontWeight: '600' }}>Your control:</Text> All messages are AES-256 encrypted on your device until you clear them. Use "Clear History" or Panic Wipe to securely delete conversations.
-        </Text>
-
-        <View
-          style={{
-            backgroundColor: theme.card,
-            marginTop: 20,
-            padding: 16,
-            borderRadius: 12,
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-            <Ionicons
-              name="information-circle"
-              size={20}
-              color={theme.accent}
-              style={{ marginRight: 10, marginTop: 2 }}
-            />
-            <Text
-              style={{
-                color: theme.text,
-                fontFamily: theme.fontBody,
-                flex: 1,
-                lineHeight: 20,
-                fontSize: 14,
-              }}
-            >
-              <Text style={{ fontWeight: '600' }}>Note: </Text>
-              {theme.isTerminal
-                ? 'CONTEXT_WINDOW_IS_MODEL_LIMIT_NOT_DEVICE_LIMIT'
-                : 'Context window size is determined by the AI model architecture, not your device capabilities.'}
-            </Text>
-          </View>
-        </View>
-      </ScrollView>
-    </View>
-  );
-
-  const renderStorageManagementScreen = () => (
-    <View style={{ flex: 1 }}>
-      <SettingsSubHeader
-        title={theme.isTerminal ? 'Storage_Management' : 'Storage Management'}
-        onBack={onGoBack}
-        theme={theme}
-      />
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={[styles.sectionTitle, { color: theme.text, fontFamily: theme.fontBody }]}>
-          {theme.isTerminal ? 'DOWNLOADED_MODELS' : 'Downloaded Performance Modes'}
-        </Text>
-        <Text
-          style={[
-            styles.explainerText,
-            { color: theme.subtext, fontFamily: theme.fontBody, marginTop: 8, marginBottom: 16 },
-          ]}
-        >
-          {theme.isTerminal
-            ? 'MODELS_STORED_ON_DEVICE'
-            : 'Models are stored on your device for offline use'}
-        </Text>
-      </ScrollView>
-    </View>
-  );
-
-  const renderAdvancedPerformanceScreen = () => (
-    <View style={{ flex: 1 }}>
-      <SettingsSubHeader
-        title={theme.isTerminal ? 'Advanced_Settings' : 'Advanced Settings'}
-        onBack={onGoBack}
-        theme={theme}
-      />
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={[styles.sectionTitle, { color: theme.text, fontFamily: theme.fontBody }]}>
-          {theme.isTerminal ? 'MULTI_MODEL_OPTIMIZATION' : 'Multi-Model Optimization'}
+          {theme.isTerminal ? (
+            <>
+              FREE TIER: RECENT MESSAGES REMEMBERED. OLDEST FORGOTTEN AS NEW ARRIVE.{'\n\n'}
+              PRO TIER: 4X MORE MEMORY. OLDER MESSAGES SUMMARIZED, NOT FORGOTTEN.{'\n\n'}
+              {subscriptionTier === 'FREE' ? (
+                <>YOU ARE IN CONTROL: ALL MESSAGES ENCRYPTED ON YOUR DEVICE. USE CLEAR BUTTON IN MAIN CHAT SCREEN TO SECURELY DELETE ALL MESSAGES.</>
+              ) : (
+                <>YOU ARE IN CONTROL: ALL MESSAGES ENCRYPTED ON YOUR DEVICE. DELETE THEM SECURELY USING CLEAR CONVERSATION HISTORY ABOVE, CLEAR IN MAIN CHAT, OR PANIC WIPE (SETTINGS, SECURITY).</>
+              )}
+            </>
+          ) : (
+            <>
+              <Text style={{ fontWeight: '600' }}>Free:</Text> Recent messages are remembered. Oldest messages are forgotten as new ones arrive.
+              {'\n\n'}
+              <Text style={{ fontWeight: '600' }}>Pro:</Text> 4x more memory. When capacity is reached, older messages are summarized instead of forgotten.
+              {'\n\n'}
+              {subscriptionTier === 'FREE' ? (
+                <>
+                  <Text style={{ fontWeight: '600' }}>You're in control:</Text> All messages are encrypted on your device. Use "Clear" button in the main chat screen to securely delete all messages.
+                </>
+              ) : (
+                <>
+                  <Text style={{ fontWeight: '600' }}>You're in control:</Text> All messages are encrypted on your device. Delete them securely using "Clear Conversation History" above, "Clear" in the main chat, or Panic Wipe (Settings {'>'} Security).
+                </>
+              )}
+            </>
+          )}
         </Text>
       </ScrollView>
     </View>
@@ -1081,8 +985,6 @@ export const AISettings: React.FC<AISettingsProps> = ({
   if (currentScreen === 'ai') return renderAIScreen();
   if (currentScreen === 'performanceModes') return renderPerformanceModesScreen();
   if (currentScreen === 'conversationMemory') return renderConversationMemoryScreen();
-  if (currentScreen === 'storageManagement') return renderStorageManagementScreen();
-  if (currentScreen === 'advancedPerformance') return renderAdvancedPerformanceScreen();
 
   return null;
 };
@@ -1136,4 +1038,8 @@ const styles = StyleSheet.create({
   memorySubtext: { fontSize: 14 },
   memoryDesc: { fontSize: 13 },
   explainerText: { fontSize: 15 },
+
+  // Storage Section (Performance Modes footer)
+  infoSection: { paddingTop: 8 },
+  sectionHeader: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
 });
