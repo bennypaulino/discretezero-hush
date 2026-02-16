@@ -52,7 +52,13 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      [
+        "react-native-purchases",
+        {
+          "googlePlayBillingVersion": 6
+        }
+      ]
     ],
     "extra": {
       "eas": {

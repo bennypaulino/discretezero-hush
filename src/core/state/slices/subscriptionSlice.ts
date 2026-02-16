@@ -61,6 +61,7 @@ interface DiscoverySliceMinimal {
 export interface SubscriptionSlice {
   // --- STATE ---
   subscriptionTier: SubscriptionTier;
+  revenueCatUserId: string | null;
   dailyCount: number;
   lastActiveDate: string;
   showPaywall: boolean;
@@ -75,6 +76,7 @@ export interface SubscriptionSlice {
 
   // --- ACTIONS ---
   setSubscription: (tier: SubscriptionTier) => void;
+  setRevenueCatUserId: (userId: string | null) => void;
   setShowPaywall: (show: boolean) => void;
   setPaywallReason: (reason: PaywallReason) => void;
   checkDailyReset: () => void;
@@ -98,6 +100,7 @@ export const createSubscriptionSlice: StateCreator<
 > = (set, get) => ({
   // --- INITIAL STATE ---
   subscriptionTier: 'FREE',
+  revenueCatUserId: null,
   dailyCount: 0,
   lastActiveDate: getLocalDateString(new Date()), // Use LOCAL time (not UTC)
   showPaywall: false,
@@ -131,6 +134,10 @@ export const createSubscriptionSlice: StateCreator<
     if (wasFree && isPro && !get().classifiedDiscovered) {
       set({ showPostPurchaseCelebration: true });
     }
+  },
+
+  setRevenueCatUserId: (userId) => {
+    set({ revenueCatUserId: userId });
   },
 
   setShowPaywall: (show) => set({ showPaywall: show }),

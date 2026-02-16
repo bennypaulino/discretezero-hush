@@ -27,6 +27,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Linking,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
@@ -44,6 +45,7 @@ import { AppearanceSettings } from './AppearanceSettings';
 import { AboutSettings } from './AboutSettings';
 import { TestingSettings } from './TestingSettings';
 import type { Screen } from './shared/types';
+import { getRevenueCatUserId } from '../../payment/Purchases';
 
 interface SettingsContainerProps {
   visible: boolean;
@@ -78,6 +80,7 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
 
   // Navigation state
   const [currentScreen, setCurrentScreen] = useState<Screen>('main');
+  const [revenueCatUserId, setRevenueCatUserId] = useState<string | null>(null);
 
   // Calculate effective mode and theme
   const effectiveMode = mode || flavor;
@@ -95,6 +98,15 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
       setCurrentScreen('main');
     }
   }, [visible, initialScreen]);
+
+  // Load RevenueCat user ID for web purchase section
+  useEffect(() => {
+    async function loadUserId() {
+      const userId = await getRevenueCatUserId();
+      setRevenueCatUserId(userId);
+    }
+    loadUserId();
+  }, []);
 
   // Calculate hours until reset (midnight local time)
   const getHoursUntilReset = () => {
@@ -297,6 +309,65 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
           />
         </View>
       </View>
+
+      {/* WEB PURCHASE OPTION */}
+      {subscriptionTier === 'FREE' && revenueCatUserId && (
+        <View style={[styles.section, { backgroundColor: theme.card, paddingHorizontal: 20, paddingVertical: 16, borderRadius: 12 }]}>
+          <Text style={[styles.sectionTitle, { color: theme.text, fontFamily: theme.fontHeader }]}>
+            {theme.isTerminal ? 'WEB_PURCHASE_PORTAL' : 'Web Purchase'}
+          </Text>
+          <Text style={{ color: theme.subtext, fontSize: 14, marginBottom: 16, fontFamily: theme.fontBody }}>
+            {theme.isTerminal
+              ? 'ALTERNATIVE ACQUISITION METHOD. REDUCED FEES. ENHANCED OPSEC.'
+              : 'Prefer to purchase via web? Lower fees, more privacy.'}
+          </Text>
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              Linking.openURL('https://discretezero.com/hush/upgrade');
+            }}
+            style={{
+              backgroundColor: theme.accent,
+              paddingVertical: 14,
+              paddingHorizontal: 20,
+              borderRadius: 8,
+              alignItems: 'center',
+              marginBottom: 16,
+            }}
+          >
+            <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600', fontFamily: theme.fontBody }}>
+              {theme.isTerminal ? '[ INITIATE WEB CHECKOUT ]' : 'Upgrade via Web'}
+            </Text>
+          </TouchableOpacity>
+          <View style={{
+            backgroundColor: theme.background,
+            padding: 12,
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: theme.divider,
+          }}>
+            <Text style={{ color: theme.subtext, fontSize: 11, marginBottom: 6, fontFamily: theme.fontBody }}>
+              {theme.isTerminal ? 'USER_IDENTIFIER:' : 'Your User ID:'}
+            </Text>
+            <Text
+              style={{
+                color: theme.text,
+                fontSize: 13,
+                fontFamily: 'Courier',
+                marginBottom: 8,
+              }}
+              selectable
+            >
+              {revenueCatUserId}
+            </Text>
+            <Text style={{ color: theme.subtext, fontSize: 11, fontFamily: theme.fontBody }}>
+              {theme.isTerminal
+                ? 'ENTER THIS IDENTIFIER DURING WEB CHECKOUT TO LINK SUBSCRIPTION.'
+                : 'Enter this ID during web checkout to link your purchase'}
+            </Text>
+          </View>
+        </View>
+      )}
 
       {/* DISCRETION THEME - Show above nav rows for Discretion */}
       {effectiveMode === 'DISCRETION' && !isBlocker && (

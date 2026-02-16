@@ -13,6 +13,10 @@
       },
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "test_VRDsgfUfaiRQRLgBfubmRguySlu",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "test_VRDsgfUfaiRQRLgBfubmRguySlu"
       }
     },
     "preview": {
@@ -24,6 +28,10 @@
       },
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "test_VRDsgfUfaiRQRLgBfubmRguySlu",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "test_VRDsgfUfaiRQRLgBfubmRguySlu"
       }
     },
     "beta": {
@@ -35,6 +43,10 @@
       },
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_xxxxxxxxxx",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "goog_xxxxxxxxxx"
       }
     },
     "production": {
@@ -46,6 +58,10 @@
       },
       "android": {
         "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_PRODUCTION_KEY",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "goog_PRODUCTION_KEY"
       }
     }
   },

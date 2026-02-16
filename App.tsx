@@ -12,6 +12,7 @@ import { DiscoverySequence } from './src/core/ui/DiscoverySequence';
 import { PasscodeGate } from './src/core/security/PasscodeGate';
 import { usePanicWipe } from './src/core/hooks/usePanicWipe';
 import { warmUpModel, syncDownloadedModels } from './src/core/engine/LocalAI';
+import { initializePurchases } from './src/core/payment/Purchases';
 import { Breathe } from './src/core/games/Breathe';
 import { Gratitude } from './src/core/games/Gratitude';
 import { Unburdening } from './src/core/games/Unburdening';
@@ -94,6 +95,9 @@ export default function App() {
     loadSecureData();
     checkDailyReset();
     incrementAppOpenCount();
+
+    // Initialize RevenueCat payment system (non-blocking, fire-and-forget)
+    initializePurchases();
 
     // Sync which models are downloaded and warm up AI model in background (non-blocking)
     syncDownloadedModels();
