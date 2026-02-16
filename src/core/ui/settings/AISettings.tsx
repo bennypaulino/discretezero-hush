@@ -649,75 +649,79 @@ export const AISettings: React.FC<AISettingsProps> = ({
             </>
           )}
 
-          {/* Storage Summary Footer */}
-          <View style={[styles.separator, { backgroundColor: theme.divider, marginVertical: 20 }]} />
-          <View style={[styles.infoSection, { paddingTop: 4 }]}>
-            <Text style={[styles.sectionHeader, { color: theme.text, fontFamily: theme.fontBody, fontSize: 16, fontWeight: '600', marginBottom: 12 }]}>
-              {theme.isTerminal ? 'STORAGE' : 'Storage'}
-            </Text>
+          {/* Storage Summary Footer - Pro users only */}
+          {isPro && (
+            <>
+              <View style={[styles.separator, { backgroundColor: theme.divider, marginVertical: 20 }]} />
+              <View style={[styles.infoSection, { paddingTop: 4 }]}>
+                <Text style={[styles.sectionHeader, { color: theme.text, fontFamily: theme.fontBody, fontSize: 16, fontWeight: '600', marginBottom: 12 }]}>
+                  {theme.isTerminal ? 'STORAGE' : 'Storage'}
+                </Text>
 
-            {storage.loading ? (
-              <Text style={[styles.infoText, { color: theme.subtext, fontFamily: theme.fontBody }]}>
-                {theme.isTerminal ? 'LOADING_STORAGE_INFO' : 'Loading storage info'}...
-              </Text>
-            ) : (
-              <>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                {storage.loading ? (
                   <Text style={[styles.infoText, { color: theme.subtext, fontFamily: theme.fontBody }]}>
-                    {theme.isTerminal ? 'AI_MODELS' : 'AI Models'}:
+                    {theme.isTerminal ? 'LOADING_STORAGE_INFO' : 'Loading storage info'}...
                   </Text>
-                  <Text style={[styles.infoText, { color: theme.text, fontFamily: theme.fontBody, fontWeight: '600' }]}>
-                    {storage.modelsUsedFormatted}
-                  </Text>
-                </View>
+                ) : (
+                  <>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <Text style={[styles.infoText, { color: theme.subtext, fontFamily: theme.fontBody }]}>
+                        {theme.isTerminal ? 'AI_MODELS' : 'AI Models'}:
+                      </Text>
+                      <Text style={[styles.infoText, { color: theme.text, fontFamily: theme.fontBody, fontWeight: '600' }]}>
+                        {storage.modelsUsedFormatted}
+                      </Text>
+                    </View>
 
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
-                  <Text style={[styles.infoText, { color: theme.subtext, fontFamily: theme.fontBody }]}>
-                    {theme.isTerminal ? 'DEVICE_FREE' : 'Device Free'}:
-                  </Text>
-                  <Text style={[styles.infoText, { color: theme.text, fontFamily: theme.fontBody, fontWeight: '600' }]}>
-                    {storage.deviceFreeFormatted}
-                  </Text>
-                </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
+                      <Text style={[styles.infoText, { color: theme.subtext, fontFamily: theme.fontBody }]}>
+                        {theme.isTerminal ? 'DEVICE_FREE' : 'Device Free'}:
+                      </Text>
+                      <Text style={[styles.infoText, { color: theme.text, fontFamily: theme.fontBody, fontWeight: '600' }]}>
+                        {storage.deviceFreeFormatted}
+                      </Text>
+                    </View>
 
-                <TouchableOpacity
-                  style={[
-                    styles.upgradeBtn,
-                    { backgroundColor: 'transparent', borderWidth: 1, borderColor: theme.divider, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-                  ]}
-                  onPress={async () => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    <TouchableOpacity
+                      style={[
+                        styles.upgradeBtn,
+                        { backgroundColor: 'transparent', borderWidth: 1, borderColor: theme.divider, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+                      ]}
+                      onPress={async () => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-                    try {
-                      if (Platform.OS === 'ios') {
-                        await Linking.openSettings();
-                      } else {
-                        // Android
-                        await IntentLauncher.startActivityAsync(
-                          IntentLauncher.ActivityAction.MANAGE_APP_ALL_FILES_ACCESS_PERMISSION
-                        );
-                      }
-                    } catch (error) {
-                      if (__DEV__) {
-                        console.error('Failed to open storage settings:', error);
-                      }
-                      Alert.alert(
-                        theme.isTerminal ? 'ERROR' : 'Error',
-                        theme.isTerminal
-                          ? 'FAILED_TO_OPEN_SETTINGS'
-                          : 'Failed to open storage settings'
-                      );
-                    }
-                  }}
-                >
-                  <Ionicons name="settings-outline" size={18} color={theme.accent} />
-                  <Text style={[styles.upgradeBtnText, { color: theme.text, fontFamily: theme.fontBody }]}>
-                    {theme.isTerminal ? 'OPEN_STORAGE_SETTINGS' : 'Open Storage Settings'}
-                  </Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
+                        try {
+                          if (Platform.OS === 'ios') {
+                            await Linking.openSettings();
+                          } else {
+                            // Android
+                            await IntentLauncher.startActivityAsync(
+                              IntentLauncher.ActivityAction.MANAGE_APP_ALL_FILES_ACCESS_PERMISSION
+                            );
+                          }
+                        } catch (error) {
+                          if (__DEV__) {
+                            console.error('Failed to open storage settings:', error);
+                          }
+                          Alert.alert(
+                            theme.isTerminal ? 'ERROR' : 'Error',
+                            theme.isTerminal
+                              ? 'FAILED_TO_OPEN_SETTINGS'
+                              : 'Failed to open storage settings'
+                          );
+                        }
+                      }}
+                    >
+                      <Ionicons name="settings-outline" size={18} color={theme.accent} />
+                      <Text style={[styles.upgradeBtnText, { color: theme.text, fontFamily: theme.fontBody }]}>
+                        {theme.isTerminal ? 'OPEN_STORAGE_SETTINGS' : 'Open Storage Settings'}
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            </>
+          )}
         </ScrollView>
       </View>
     );
