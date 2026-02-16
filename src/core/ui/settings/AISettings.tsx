@@ -584,7 +584,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
                 'flash',
                 theme.isTerminal ? 'EFFICIENT_MODE' : 'Efficient Mode',
                 '1.7GB (bundled)',
-                '★★★☆☆',
+                '★★★★★',
                 '★★★☆☆',
                 theme.isTerminal
                   ? 'Fastest speed, smallest size, universal compatibility'
@@ -609,7 +609,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
                 'trophy',
                 theme.isTerminal ? 'QUALITY_MODE' : 'Quality Mode',
                 '6GB',
-                '★★☆☆☆',
+                '★★★☆☆',
                 '★★★★★',
                 theme.isTerminal
                   ? 'Highest intelligence, requires powerful hardware'
