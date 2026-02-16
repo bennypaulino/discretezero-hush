@@ -6,7 +6,7 @@ import Purchases, {
   PACKAGE_TYPE,
 } from 'react-native-purchases';
 import { Platform } from 'react-native';
-import { useSubscriptionStore } from '../state/slices/subscriptionSlice';
+import { useChatStore } from '../state/rootStore';
 
 // ============================================================================
 // Module State (Singleton Pattern)
@@ -20,15 +20,14 @@ let currentUserId: string | null = null;
 // Constants
 // ============================================================================
 
-const REVENUECAT_IOS_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY;
-const REVENUECAT_ANDROID_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY;
+// TEMPORARY: Hardcoded test key for development (TODO: Fix env var loading)
+const REVENUECAT_IOS_KEY = 'test_VRDsgfUfaiRQRLgBfubmRguySlu';
+const REVENUECAT_ANDROID_KEY = 'test_VRDsgfUfaiRQRLgBfubmRguySlu';
 const ENTITLEMENT_ID = 'pro';
 
-// Validate keys at module load
-if (!REVENUECAT_IOS_KEY || !REVENUECAT_ANDROID_KEY) {
-  if (__DEV__) {
-    console.error('[Purchases] RevenueCat API keys not configured in eas.json');
-  }
+// Note: Using hardcoded test keys - env vars from eas.json not loading correctly
+if (__DEV__) {
+  console.log('[Purchases] Using hardcoded test API keys');
 }
 
 // Product identifiers (match RevenueCat dashboard)
@@ -238,7 +237,7 @@ export async function checkEntitlementStatus(): Promise<void> {
 
     // Store RevenueCat user ID for web linking
     currentUserId = customerInfo.originalAppUserId;
-    useSubscriptionStore.getState().setRevenueCatUserId(currentUserId);
+    useChatStore.getState().setRevenueCatUserId(currentUserId);
 
     if (__DEV__) {
       console.log('[Purchases] Entitlement check complete:', {
@@ -263,7 +262,7 @@ function updateSubscriptionFromEntitlements(customerInfo: CustomerInfo): void {
 
   if (!proEntitlement) {
     // No active Pro entitlement - set to FREE
-    useSubscriptionStore.getState().setSubscription('FREE');
+    useChatStore.getState().setSubscription('FREE');
     if (__DEV__) {
       console.log('[Purchases] No active Pro entitlement - user is FREE');
     }
@@ -287,7 +286,7 @@ function updateSubscriptionFromEntitlements(customerInfo: CustomerInfo): void {
     tier = 'MONTHLY';
   }
 
-  useSubscriptionStore.getState().setSubscription(tier);
+  useChatStore.getState().setSubscription(tier);
 
   if (__DEV__) {
     console.log('[Purchases] Active Pro entitlement detected:', {

@@ -29,6 +29,7 @@ import {
   ScrollView,
   Linking,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -81,6 +82,7 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
   // Navigation state
   const [currentScreen, setCurrentScreen] = useState<Screen>('main');
   const [revenueCatUserId, setRevenueCatUserId] = useState<string | null>(null);
+  const [userIdCopied, setUserIdCopied] = useState(false);
 
   // Calculate effective mode and theme
   const effectiveMode = mode || flavor;
@@ -346,9 +348,42 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
             borderWidth: 1,
             borderColor: theme.divider,
           }}>
-            <Text style={{ color: theme.subtext, fontSize: 11, marginBottom: 6, fontFamily: theme.fontBody }}>
-              {theme.isTerminal ? 'USER_IDENTIFIER:' : 'Your User ID:'}
-            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <Text style={{ color: theme.subtext, fontSize: 11, fontFamily: theme.fontBody }}>
+                {theme.isTerminal ? 'USER_IDENTIFIER:' : 'Your User ID:'}
+              </Text>
+              <TouchableOpacity
+                onPress={async () => {
+                  await Clipboard.setStringAsync(revenueCatUserId || '');
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  setUserIdCopied(true);
+                  setTimeout(() => setUserIdCopied(false), 2000);
+                }}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingVertical: 4,
+                  paddingHorizontal: 8,
+                  borderRadius: 4,
+                  backgroundColor: userIdCopied ? theme.accent : 'transparent',
+                }}
+              >
+                <Ionicons
+                  name={userIdCopied ? 'checkmark' : 'copy-outline'}
+                  size={16}
+                  color={userIdCopied ? '#FFFFFF' : theme.accent}
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={{
+                  color: userIdCopied ? '#FFFFFF' : theme.accent,
+                  fontSize: 12,
+                  fontWeight: '600',
+                  fontFamily: theme.fontBody,
+                }}>
+                  {userIdCopied ? (theme.isTerminal ? 'COPIED' : 'Copied!') : (theme.isTerminal ? 'COPY' : 'Copy')}
+                </Text>
+              </TouchableOpacity>
+            </View>
             <Text
               style={{
                 color: theme.text,
