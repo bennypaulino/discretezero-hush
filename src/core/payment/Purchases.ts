@@ -23,7 +23,8 @@ let currentUserId: string | null = null;
 // TEMPORARY: Hardcoded test key for development (TODO: Fix env var loading)
 const REVENUECAT_IOS_KEY = 'test_VRDsgfUfaiRQRLgBfubmRguySlu';
 const REVENUECAT_ANDROID_KEY = 'test_VRDsgfUfaiRQRLgBfubmRguySlu';
-const ENTITLEMENT_ID = 'pro';
+// NOTE: Test Store uses 'DiscreteZero', production will use 'pro'
+const ENTITLEMENT_ID = 'DiscreteZero';
 
 // Note: Using hardcoded test keys - env vars from eas.json not loading correctly
 if (__DEV__) {
