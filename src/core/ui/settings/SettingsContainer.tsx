@@ -320,8 +320,8 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
           </Text>
           <Text style={{ color: theme.subtext, fontSize: 14, marginBottom: 16, fontFamily: theme.fontBody }}>
             {theme.isTerminal
-              ? 'ALTERNATIVE ACQUISITION METHOD. BYPASS APP STORE FEES. DIRECT PAYMENT VIA STRIPE.'
-              : 'Purchase directly via Stripe. Same price, no Apple/Google fees. More private.'}
+              ? 'ALTERNATIVE ACQUISITION METHOD. DIRECT PAYMENT VIA STRIPE. NO APP STORE TRACKING.'
+              : 'Purchase directly via Stripe. Not tied to your Apple ID. More private.'}
           </Text>
           <TouchableOpacity
             onPress={() => {
