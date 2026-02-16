@@ -209,13 +209,15 @@ export async function getModelStorageUsed(): Promise<number> {
 
     try {
       const fileInfo = await FileSystem.getInfoAsync(modelPath);
-      if (fileInfo.exists && 'size' in fileInfo && fileInfo.size) {
+
+      // Validate file exists and has valid size
+      if (fileInfo.exists && 'size' in fileInfo && typeof fileInfo.size === 'number' && fileInfo.size > 0) {
         totalBytes += fileInfo.size;
       }
     } catch (e) {
       // File doesn't exist or can't be accessed, skip it
       if (__DEV__) {
-        console.log(`Model file not found: ${fileName}`);
+        console.log(`Model file not found or inaccessible: ${fileName}`);
       }
     }
   }

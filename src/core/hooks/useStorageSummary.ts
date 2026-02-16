@@ -49,42 +49,54 @@ export function useStorageSummary(): StorageSummary {
   });
 
   useEffect(() => {
+    let isMounted = true;
+
     async function loadStorage() {
       try {
         const modelsUsed = await getModelStorageUsed();
         const deviceFree = await FileSystem.getFreeDiskStorageAsync();
         const deviceTotal = await FileSystem.getTotalDiskCapacityAsync();
 
-        setSummary({
-          modelsUsedBytes: modelsUsed,
-          modelsUsedFormatted: formatBytes(modelsUsed),
-          deviceFreeBytes: deviceFree,
-          deviceFreeFormatted: formatBytes(deviceFree),
-          deviceTotalBytes: deviceTotal,
-          deviceTotalFormatted: formatBytes(deviceTotal),
-          percentUsed: deviceTotal > 0 ? ((deviceTotal - deviceFree) / deviceTotal) * 100 : 0,
-          loading: false,
-        });
+        // Only update state if component is still mounted
+        if (isMounted) {
+          setSummary({
+            modelsUsedBytes: modelsUsed,
+            modelsUsedFormatted: formatBytes(modelsUsed),
+            deviceFreeBytes: deviceFree,
+            deviceFreeFormatted: formatBytes(deviceFree),
+            deviceTotalBytes: deviceTotal,
+            deviceTotalFormatted: formatBytes(deviceTotal),
+            percentUsed: deviceTotal > 0 ? ((deviceTotal - deviceFree) / deviceTotal) * 100 : 0,
+            loading: false,
+          });
+        }
       } catch (error) {
         if (__DEV__) {
           console.error('Failed to load storage info:', error);
         }
 
-        // Set error state with zeros
-        setSummary({
-          modelsUsedBytes: 0,
-          modelsUsedFormatted: '0 GB',
-          deviceFreeBytes: 0,
-          deviceFreeFormatted: '0 GB',
-          deviceTotalBytes: 0,
-          deviceTotalFormatted: '0 GB',
-          percentUsed: 0,
-          loading: false,
-        });
+        // Set error state with zeros (only if still mounted)
+        if (isMounted) {
+          setSummary({
+            modelsUsedBytes: 0,
+            modelsUsedFormatted: '0 GB',
+            deviceFreeBytes: 0,
+            deviceFreeFormatted: '0 GB',
+            deviceTotalBytes: 0,
+            deviceTotalFormatted: '0 GB',
+            percentUsed: 0,
+            loading: false,
+          });
+        }
       }
     }
 
     loadStorage();
+
+    // Cleanup function to prevent state updates after unmount
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return summary;

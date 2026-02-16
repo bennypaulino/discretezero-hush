@@ -694,9 +694,9 @@ export const AISettings: React.FC<AISettingsProps> = ({
                           if (Platform.OS === 'ios') {
                             await Linking.openSettings();
                           } else {
-                            // Android
+                            // Android - open app details settings
                             await IntentLauncher.startActivityAsync(
-                              IntentLauncher.ActivityAction.MANAGE_APP_ALL_FILES_ACCESS_PERMISSION
+                              IntentLauncher.ActivityAction.APPLICATION_DETAILS_SETTINGS
                             );
                           }
                         } catch (error) {
@@ -1038,4 +1038,8 @@ const styles = StyleSheet.create({
   memorySubtext: { fontSize: 14 },
   memoryDesc: { fontSize: 13 },
   explainerText: { fontSize: 15 },
+
+  // Storage Section (Performance Modes footer)
+  infoSection: { paddingTop: 8 },
+  sectionHeader: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
 });
