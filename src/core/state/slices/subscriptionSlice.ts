@@ -85,6 +85,7 @@ export interface SubscriptionSlice {
   ) => boolean;
   triggerPaywall: (reason: Exclude<PaywallReason, null>) => void;
   handleDailyLimitBannerTap: () => void;
+  handleSettingsManualUpgrade: () => void;
   dismissPaywall: () => void;
   setUnlimitedPaywallTesting: (enabled: boolean) => void;
   setClassifiedPaywallFlowMode: (mode: 'direct' | 'reveal_pricing') => void;
@@ -246,6 +247,24 @@ export const createSubscriptionSlice: StateCreator<
       paywallReason: 'daily_limit',
       // Banner tap NEVER increments sessionPaywallShowCount (doesn't count toward 6-cap)
     });
+  },
+
+  // EXCEPTION: Settings manual upgrade always shows paywall (bypasses session cap)
+  handleSettingsManualUpgrade: () => {
+    if (__DEV__) {
+      console.log('[SettingsUpgrade] Manual upgrade triggered - bypassing session cap');
+    }
+    set({
+      showPaywall: true,
+      paywallReason: 'feature_locked_theme',
+      // Manual upgrade from Settings NEVER increments sessionPaywallShowCount
+    });
+    if (__DEV__) {
+      console.log('[SettingsUpgrade] Paywall state set:', {
+        showPaywall: true,
+        paywallReason: 'feature_locked_theme',
+      });
+    }
   },
 
   setUnlimitedPaywallTesting: (enabled) => {

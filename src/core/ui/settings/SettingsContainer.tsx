@@ -78,6 +78,7 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
   const responseStyleHush = useChatStore((state) => state.responseStyleHush);
   const responseStyleClassified = useChatStore((state) => state.responseStyleClassified);
   const responseStyleDiscretion = useChatStore((state) => state.responseStyleDiscretion);
+  const handleSettingsManualUpgrade = useChatStore((state) => state.handleSettingsManualUpgrade);
 
   // Navigation state
   const [currentScreen, setCurrentScreen] = useState<Screen>('main');
@@ -268,63 +269,69 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
         </View>
       )}
 
-      {/* MEMBERSHIP */}
+      {/* MEMBERSHIP - Read-Only Status (Single Line) */}
       <View
         style={[
           styles.section,
           { borderBottomColor: theme.divider, borderBottomWidth: StyleSheet.hairlineWidth },
         ]}
       >
-        {effectiveMode === 'DISCRETION' ? (
-          <Text style={[styles.sectionTitle, { color: '#FFFFFF', fontFamily: theme.fontHeader }]}>
-            ACCOUNT MEMBERSHIP
+        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 12 }}>
+          {/* Section Title */}
+          {effectiveMode === 'DISCRETION' ? (
+            <Text style={[styles.sectionTitle, { color: '#FFFFFF', fontFamily: theme.fontHeader, marginBottom: 0 }]}>
+              ACCOUNT MEMBERSHIP
+            </Text>
+          ) : (
+            <Text style={[styles.sectionTitle, { color: theme.subtext, fontFamily: theme.fontHeader, marginBottom: 0 }]}>
+              {theme.isTerminal ? 'CLEARANCE_LEVEL' : 'Membership'}
+            </Text>
+          )}
+
+          {/* Current Plan (Inline) */}
+          <Text style={{ color: theme.text, fontSize: 16, fontWeight: '600', fontFamily: theme.fontBody }}>
+            {subscriptionTier === 'FREE' && 'Free'}
+            {subscriptionTier === 'MONTHLY' && 'Pro (Monthly)'}
+            {subscriptionTier === 'YEARLY' && 'Pro (Annual)'}
           </Text>
-        ) : (
-          <Text style={[styles.sectionTitle, { color: theme.subtext, fontFamily: theme.fontHeader }]}>
-            {theme.isTerminal ? 'CLEARANCE_LEVEL' : 'Membership'}
-          </Text>
-        )}
-        <View style={styles.row}>
-          <SettingsOptionButton
-            label="Free"
-            isSelected={subscriptionTier === 'FREE'}
-            onSelect={() => handleSubChange('FREE')}
-            theme={theme}
-            effectiveMode={effectiveMode}
-            classifiedTheme={classifiedTheme}
-          />
-          <SettingsOptionButton
-            label="Monthly"
-            isSelected={subscriptionTier === 'MONTHLY'}
-            onSelect={() => handleSubChange('MONTHLY')}
-            theme={theme}
-            effectiveMode={effectiveMode}
-            classifiedTheme={classifiedTheme}
-          />
-          <SettingsOptionButton
-            label="Yearly"
-            isSelected={subscriptionTier === 'YEARLY'}
-            onSelect={() => handleSubChange('YEARLY')}
-            theme={theme}
-            effectiveMode={effectiveMode}
-            classifiedTheme={classifiedTheme}
-          />
+
+          {/* Daily Limit (Inline for FREE) */}
+          {subscriptionTier === 'FREE' && (
+            <Text style={{ color: theme.subtext, fontSize: 13, fontFamily: theme.fontBody }}>
+              (8 messages/day)
+            </Text>
+          )}
         </View>
       </View>
 
-      {/* WEB PURCHASE OPTION */}
+      {/* UPGRADE TO PRO */}
       {subscriptionTier === 'FREE' && revenueCatUserId && (
         <View style={[styles.section, { backgroundColor: theme.card, paddingHorizontal: 20, paddingVertical: 16, borderRadius: 12 }]}>
           <Text style={[styles.sectionTitle, { color: theme.text, fontFamily: theme.fontHeader }]}>
-            Web Purchase
+            Upgrade to Pro
           </Text>
-          <Text style={{ color: theme.subtext, fontSize: 14, marginBottom: 16, fontFamily: theme.fontBody }}>
-            Purchase directly via Stripe. Not tied to your Apple ID. More private.
-          </Text>
+
+          {/* Features list */}
+          <View style={{ marginBottom: 16 }}>
+            <Text style={{ color: theme.text, fontSize: 14, marginBottom: 4, fontFamily: theme.fontBody }}>
+              • Unlimited daily messages (vs 8/day)
+            </Text>
+            <Text style={{ color: theme.text, fontSize: 14, marginBottom: 4, fontFamily: theme.fontBody }}>
+              • Keep longer conversation threads
+            </Text>
+            <Text style={{ color: theme.text, fontSize: 14, marginBottom: 12, fontFamily: theme.fontBody }}>
+              • Unlock premium themes & clear animations
+            </Text>
+          </View>
+
+          {/* Primary: Upgrade in App */}
           <TouchableOpacity
             onPress={() => {
+              console.log('[SettingsUpgrade] Button pressed - calling handleSettingsManualUpgrade');
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              Linking.openURL('https://discretezero.com/hush/upgrade');
+              handleSettingsManualUpgrade();
+              // Close Settings so PaywallModal can appear
+              onClose();
             }}
             style={{
               backgroundColor: theme.accent,
@@ -332,11 +339,38 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
               paddingHorizontal: 20,
               borderRadius: 8,
               alignItems: 'center',
-              marginBottom: 16,
+              marginBottom: 12,
             }}
           >
             <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600', fontFamily: theme.fontBody }}>
-              Upgrade via Web
+              Upgrade in App
+            </Text>
+          </TouchableOpacity>
+
+          {/* Web purchase prompt */}
+          <Text style={{ color: theme.subtext, fontSize: 13, textAlign: 'center', marginBottom: 8, fontFamily: theme.fontBody }}>
+            Prefer web? More private.
+          </Text>
+
+          {/* Secondary: Upgrade via Browser */}
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              Linking.openURL('https://discretezero.com/hush/upgrade');
+            }}
+            style={{
+              backgroundColor: 'transparent',
+              borderWidth: 1,
+              borderColor: theme.accent,
+              paddingVertical: 14,
+              paddingHorizontal: 20,
+              borderRadius: 8,
+              alignItems: 'center',
+              marginBottom: 16,
+            }}
+          >
+            <Text style={{ color: theme.accent, fontSize: 16, fontWeight: '600', fontFamily: theme.fontBody }}>
+              Upgrade via Browser
             </Text>
           </TouchableOpacity>
           <View style={{
