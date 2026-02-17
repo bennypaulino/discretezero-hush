@@ -28,8 +28,8 @@ import {
   TouchableOpacity,
   ScrollView,
   Linking,
+  Platform,
 } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -45,6 +45,7 @@ import { AISettings } from './AISettings';
 import { AppearanceSettings } from './AppearanceSettings';
 import { AboutSettings } from './AboutSettings';
 import { TestingSettings } from './TestingSettings';
+import { MembershipSettings } from './MembershipSettings';
 import type { Screen } from './shared/types';
 import { getRevenueCatUserId } from '../../payment/Purchases';
 
@@ -78,12 +79,9 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
   const responseStyleHush = useChatStore((state) => state.responseStyleHush);
   const responseStyleClassified = useChatStore((state) => state.responseStyleClassified);
   const responseStyleDiscretion = useChatStore((state) => state.responseStyleDiscretion);
-  const handleSettingsManualUpgrade = useChatStore((state) => state.handleSettingsManualUpgrade);
 
   // Navigation state
   const [currentScreen, setCurrentScreen] = useState<Screen>('main');
-  const [revenueCatUserId, setRevenueCatUserId] = useState<string | null>(null);
-  const [userIdCopied, setUserIdCopied] = useState(false);
 
   // Calculate effective mode and theme
   const effectiveMode = mode || flavor;
@@ -101,15 +99,6 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
       setCurrentScreen('main');
     }
   }, [visible, initialScreen]);
-
-  // Load RevenueCat user ID for web purchase section
-  useEffect(() => {
-    async function loadUserId() {
-      const userId = await getRevenueCatUserId();
-      setRevenueCatUserId(userId);
-    }
-    loadUserId();
-  }, []);
 
   // Calculate hours until reset (midnight local time)
   const getHoursUntilReset = () => {
@@ -269,171 +258,6 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
         </View>
       )}
 
-      {/* MEMBERSHIP - Read-Only Status (Single Line) */}
-      <View
-        style={[
-          styles.section,
-          { borderBottomColor: theme.divider, borderBottomWidth: StyleSheet.hairlineWidth },
-        ]}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 12 }}>
-          {/* Section Title */}
-          {effectiveMode === 'DISCRETION' ? (
-            <Text style={[styles.sectionTitle, { color: '#FFFFFF', fontFamily: theme.fontHeader, marginBottom: 0 }]}>
-              ACCOUNT MEMBERSHIP
-            </Text>
-          ) : (
-            <Text style={[styles.sectionTitle, { color: theme.subtext, fontFamily: theme.fontHeader, marginBottom: 0 }]}>
-              {theme.isTerminal ? 'CLEARANCE_LEVEL' : 'Membership'}
-            </Text>
-          )}
-
-          {/* Current Plan (Inline) */}
-          <Text style={{ color: theme.text, fontSize: 16, fontWeight: '600', fontFamily: theme.fontBody }}>
-            {subscriptionTier === 'FREE' && 'Free'}
-            {subscriptionTier === 'MONTHLY' && 'Pro (Monthly)'}
-            {subscriptionTier === 'YEARLY' && 'Pro (Annual)'}
-          </Text>
-
-          {/* Daily Limit (Inline for FREE) */}
-          {subscriptionTier === 'FREE' && (
-            <Text style={{ color: theme.subtext, fontSize: 13, fontFamily: theme.fontBody }}>
-              (8 messages/day)
-            </Text>
-          )}
-        </View>
-      </View>
-
-      {/* UPGRADE TO PRO */}
-      {subscriptionTier === 'FREE' && revenueCatUserId && (
-        <View style={[styles.section, { backgroundColor: theme.card, paddingHorizontal: 20, paddingVertical: 16, borderRadius: 12 }]}>
-          <Text style={[styles.sectionTitle, { color: theme.text, fontFamily: theme.fontHeader }]}>
-            Upgrade to Pro
-          </Text>
-
-          {/* Features list */}
-          <View style={{ marginBottom: 16 }}>
-            <Text style={{ color: theme.text, fontSize: 14, marginBottom: 4, fontFamily: theme.fontBody }}>
-              • Unlimited daily messages (vs 8/day)
-            </Text>
-            <Text style={{ color: theme.text, fontSize: 14, marginBottom: 4, fontFamily: theme.fontBody }}>
-              • Keep longer conversation threads
-            </Text>
-            <Text style={{ color: theme.text, fontSize: 14, marginBottom: 12, fontFamily: theme.fontBody }}>
-              • Unlock premium themes & clear animations
-            </Text>
-          </View>
-
-          {/* Primary: Upgrade in App */}
-          <TouchableOpacity
-            onPress={() => {
-              console.log('[SettingsUpgrade] Button pressed - calling handleSettingsManualUpgrade');
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              handleSettingsManualUpgrade();
-              // Close Settings so PaywallModal can appear
-              onClose();
-            }}
-            style={{
-              backgroundColor: theme.accent,
-              paddingVertical: 14,
-              paddingHorizontal: 20,
-              borderRadius: 8,
-              alignItems: 'center',
-              marginBottom: 12,
-            }}
-          >
-            <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600', fontFamily: theme.fontBody }}>
-              Upgrade in App
-            </Text>
-          </TouchableOpacity>
-
-          {/* Web purchase prompt */}
-          <Text style={{ color: theme.subtext, fontSize: 13, textAlign: 'center', marginBottom: 8, fontFamily: theme.fontBody }}>
-            Prefer web? More private.
-          </Text>
-
-          {/* Secondary: Upgrade via Browser */}
-          <TouchableOpacity
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              Linking.openURL('https://discretezero.com/hush/upgrade');
-            }}
-            style={{
-              backgroundColor: 'transparent',
-              borderWidth: 1,
-              borderColor: theme.accent,
-              paddingVertical: 14,
-              paddingHorizontal: 20,
-              borderRadius: 8,
-              alignItems: 'center',
-              marginBottom: 16,
-            }}
-          >
-            <Text style={{ color: theme.accent, fontSize: 16, fontWeight: '600', fontFamily: theme.fontBody }}>
-              Upgrade via Browser
-            </Text>
-          </TouchableOpacity>
-          <View style={{
-            backgroundColor: theme.background,
-            padding: 12,
-            borderRadius: 8,
-            borderWidth: 1,
-            borderColor: theme.divider,
-          }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <Text style={{ color: theme.subtext, fontSize: 11, fontFamily: theme.fontBody }}>
-                Your User ID:
-              </Text>
-              <TouchableOpacity
-                onPress={async () => {
-                  await Clipboard.setStringAsync(revenueCatUserId || '');
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                  setUserIdCopied(true);
-                  setTimeout(() => setUserIdCopied(false), 2000);
-                }}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  paddingVertical: 4,
-                  paddingHorizontal: 8,
-                  borderRadius: 4,
-                  backgroundColor: userIdCopied ? theme.accent : 'transparent',
-                }}
-              >
-                <Ionicons
-                  name={userIdCopied ? 'checkmark' : 'copy-outline'}
-                  size={16}
-                  color={userIdCopied ? '#FFFFFF' : theme.accent}
-                  style={{ marginRight: 4 }}
-                />
-                <Text style={{
-                  color: userIdCopied ? '#FFFFFF' : theme.accent,
-                  fontSize: 12,
-                  fontWeight: '600',
-                  fontFamily: theme.fontBody,
-                }}>
-                  {userIdCopied ? 'Copied!' : 'Copy'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <Text
-              style={{
-                color: theme.text,
-                fontSize: 13,
-                fontFamily: 'Courier',
-                marginBottom: 8,
-              }}
-              selectable
-            >
-              {revenueCatUserId}
-            </Text>
-            <Text style={{ color: theme.subtext, fontSize: 11, fontFamily: theme.fontBody }}>
-              You'll need to enter this ID on the web checkout page to link your subscription to this device.
-            </Text>
-          </View>
-        </View>
-      )}
-
       {/* DISCRETION THEME - Show above nav rows for Discretion */}
       {effectiveMode === 'DISCRETION' && !isBlocker && (
         <View style={styles.section}>
@@ -478,9 +302,25 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
       {/* NAV ROWS - Only in HUSH/CLASSIFIED/DISCRETION (not BLOCKER) */}
       {!isBlocker && (
         <View style={styles.navSection}>
+          {/* Membership - FREE users only */}
+          {subscriptionTier === 'FREE' && (
+            <SettingsNavRow
+              icon="lock-open"
+              label="Membership"
+              sublabel={
+                subscriptionTier === 'FREE' ? 'Free' :
+                subscriptionTier === 'MONTHLY' ? 'Monthly' : 'Yearly'
+              }
+              onPress={() => navigateTo('membership')}
+              theme={theme}
+              effectiveMode={effectiveMode}
+              classifiedTheme={classifiedTheme}
+            />
+          )}
+
           {/* AI - All flavors (A) */}
           <SettingsNavRow
-            icon="hardware-chip"
+            icon="sparkles"
             label={theme.isTerminal ? 'AI_Config' : 'AI'}
             sublabel={getAISummary()}
             onPress={() => navigateTo('ai')}
@@ -686,6 +526,20 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
         <AISettings
           currentScreen={currentScreen as import('./shared/types').AIScreen}
           onNavigate={navigateTo as (screen: import('./shared/types').AIScreen) => void}
+          onGoBack={goBack}
+          onClose={onClose}
+          effectiveMode={effectiveMode}
+          theme={theme}
+          isPro={isPro}
+        />
+      );
+    }
+
+    // Membership screen
+    if (currentScreen === 'membership') {
+      return (
+        <MembershipSettings
+          currentScreen={currentScreen as import('./shared/types').MembershipScreen}
           onGoBack={goBack}
           onClose={onClose}
           effectiveMode={effectiveMode}

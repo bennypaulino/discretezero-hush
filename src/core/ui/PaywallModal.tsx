@@ -157,7 +157,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, tr
   // Top 5 features
   const topFeatures = [
     { icon: 'flash', text: 'Unlimited daily exchanges' },
-    { icon: 'color-palette', text: 'All burn animations' },
+    { icon: 'color-palette', text: 'All clear animations' },
     { icon: 'brush', text: 'All themes' },
     { icon: 'leaf', text: 'Extended mindful practices' },
     { icon: 'shield-checkmark', text: 'Premium security features' },
@@ -166,7 +166,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, tr
   // Full feature list (expandable)
   const fullFeatures = [
     'Unlimited daily exchanges',
-    'All burn animations',
+    'All clear animations',
     'All themes',
     'Extended mindful practices (5min, 10min, custom breathwork)',
     'Premium security features (Panic Wipe)',
