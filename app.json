@@ -52,14 +52,7 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-font",
-      [
-        "react-native-purchases",
-        {
-          "iosRevenueCatAPIKey": "appl_TtHtUfrnKIfMWcdRocgtlZzslxn",
-          "androidRevenueCatAPIKey": "goog_eNrMSpVxWsfdljszlDqnRrTlMEG"
-        }
-      ]
+      "expo-font"
     ],
     "extra": {
       "eas": {
