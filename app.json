@@ -34,7 +34,7 @@
     },
     "android": {
       "package": "com.discretezero.hush",
-      "versionCode": 22,
+      "versionCode": 23,
       "adaptiveIcon": {
         "foregroundImage": "./assets/hush-icon-512.png",
         "backgroundColor": "#1a0f2e"
