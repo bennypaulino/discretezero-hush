@@ -288,6 +288,17 @@ export const HushScreen = () => {
   // Scroll to bottom when messages change (e.g., AI responds)
   useAutoScroll(flatListRef, displayMessages.length);
 
+  // Show Pro welcome modal if user just upgraded
+  // IMPORTANT: Must be BEFORE early return to avoid hooks violation
+  useEffect(() => {
+    if (isPro && !proFirstLaunchSeen) {
+      const timer = setTimeout(() => {
+        setShowProWelcome(true);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isPro, proFirstLaunchSeen]);
+
   // Show "no model" placeholder if model not downloaded
   if (!modelDownloaded) {
     return (
@@ -425,16 +436,6 @@ Choose what you need right now.`;
     setShowBalancedToast(false);
     useChatStore.setState({ balancedUpgradeDeclined: true });
   };
-
-  // Show Pro welcome modal if user just upgraded
-  useEffect(() => {
-    if (isPro && !proFirstLaunchSeen) {
-      const timer = setTimeout(() => {
-        setShowProWelcome(true);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [isPro, proFirstLaunchSeen]);
 
   // --- ANIMATION HANDLERS ---
     const handleClear = () => {
