@@ -20,23 +20,20 @@ let currentUserId: string | null = null;
 // Constants
 // ============================================================================
 
-// TEMPORARY: Hardcoded test key for development (TODO: Fix env var loading)
-const REVENUECAT_IOS_KEY = 'test_VRDsgfUfaiRQRLgBfubmRguySlu';
-const REVENUECAT_ANDROID_KEY = 'test_VRDsgfUfaiRQRLgBfubmRguySlu';
-// NOTE: Test Store uses 'DiscreteZero', production will use 'pro'
-const ENTITLEMENT_ID = 'DiscreteZero';
+// Production RevenueCat API keys
+const REVENUECAT_IOS_KEY = 'appl_TtHtUfrnKIfMWcdRocgtlZzslxn';
+const REVENUECAT_ANDROID_KEY = 'goog_eNrMSpVxWsfdljszlDqnRrTlMEG';
+// IMPORTANT: Entitlement ID is 'Pro' (capital P) - matches RevenueCat dashboard
+const ENTITLEMENT_ID = 'Pro';
 
-// Note: Using hardcoded test keys - env vars from eas.json not loading correctly
 if (__DEV__) {
-  console.log('[Purchases] Using hardcoded test API keys');
+  console.log('[Purchases] Using production API keys');
 }
 
-// Product identifiers
-// NOTE: Test Store uses simple IDs ('monthly', 'yearly')
-// Production will use: 'discretezero_hush_pro_monthly', 'discretezero_hush_pro_annual'
+// Product identifiers (match RevenueCat dashboard and store listings)
 const PRODUCT_IDS = {
-  MONTHLY: 'monthly',
-  YEARLY: 'yearly',
+  MONTHLY: 'discretezero_hush_pro_monthly',
+  YEARLY: 'discretezero_hush_pro_annual',
 } as const;
 
 // ============================================================================
