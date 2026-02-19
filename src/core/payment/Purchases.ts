@@ -32,9 +32,15 @@ if (__DEV__) {
 }
 
 // Product identifiers (match RevenueCat dashboard and store listings)
+// Android uses base plan IDs: {productId}:{basePlanId}
+// iOS uses simple product IDs
 const PRODUCT_IDS = {
-  MONTHLY: 'discretezero_hush_pro_monthly',
-  YEARLY: 'discretezero_hush_pro_annual',
+  MONTHLY: Platform.OS === 'android'
+    ? 'discretezero_hush_pro_monthly:monthly'
+    : 'discretezero_hush_pro_monthly',
+  YEARLY: Platform.OS === 'android'
+    ? 'discretezero_hush_pro_annual:annual'
+    : 'discretezero_hush_pro_annual',
 } as const;
 
 // ============================================================================
