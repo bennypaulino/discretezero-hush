@@ -51,7 +51,10 @@ export const ComingSoonOverlay: React.FC<ComingSoonOverlayProps> = ({
   description,
   onClose,
 }) => {
-  const { flavor, classifiedTheme, discretionTheme } = useChatStore();
+  // MEMORY FIX: Selective subscriptions instead of destructuring
+  const flavor = useChatStore((state) => state.flavor);
+  const classifiedTheme = useChatStore((state) => state.classifiedTheme);
+  const discretionTheme = useChatStore((state) => state.discretionTheme);
   const theme = getTheme(flavor, classifiedTheme, discretionTheme);
 
   const handleClose = () => {

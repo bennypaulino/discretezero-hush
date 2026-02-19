@@ -168,7 +168,8 @@ export const HushButton: React.FC<HushButtonProps> = ({
   accessibilityHint,
   testID,
 }) => {
-  const { hushTheme } = useChatStore();
+  // MEMORY FIX: Selective subscription instead of destructuring
+  const hushTheme = useChatStore((state) => state.hushTheme);
   const themeData = HUSH_THEMES[hushTheme] || HUSH_THEMES.DEFAULT;
   const accentColor = themeData.colors.primary;
 
@@ -295,7 +296,8 @@ export const HushScreenHeader: React.FC<HushScreenHeaderProps> = ({
   showCloseButton = true,
   style,
 }) => {
-  const { hushTheme } = useChatStore();
+  // MEMORY FIX: Selective subscription instead of destructuring
+  const hushTheme = useChatStore((state) => state.hushTheme);
   const themeData = HUSH_THEMES[hushTheme] || HUSH_THEMES.DEFAULT;
 
   const theme = {
@@ -411,7 +413,8 @@ export const HushInput: React.FC<HushInputProps> = ({
   accessibilityHint,
   style,
 }) => {
-  const { hushTheme } = useChatStore();
+  // MEMORY FIX: Selective subscription instead of destructuring
+  const hushTheme = useChatStore((state) => state.hushTheme);
   const themeData = HUSH_THEMES[hushTheme] || HUSH_THEMES.DEFAULT;
 
   const theme = {
@@ -482,7 +485,8 @@ export const HushShareButton: React.FC<HushShareButtonProps> = ({
   onShareComplete,
   style,
 }) => {
-  const { hushTheme } = useChatStore();
+  // MEMORY FIX: Selective subscription instead of destructuring
+  const hushTheme = useChatStore((state) => state.hushTheme);
   const themeData = HUSH_THEMES[hushTheme] || HUSH_THEMES.DEFAULT;
 
   const theme = {
@@ -596,7 +600,8 @@ export const HushCard: React.FC<HushCardProps> = ({
   accessibilityLabel,
   accessibilityHint,
 }) => {
-  const { hushTheme } = useChatStore();
+  // MEMORY FIX: Selective subscription instead of destructuring
+  const hushTheme = useChatStore((state) => state.hushTheme);
   const themeData = HUSH_THEMES[hushTheme] || HUSH_THEMES.DEFAULT;
 
   const theme = {
@@ -688,7 +693,8 @@ export const HushIconHeader: React.FC<HushIconHeaderProps> = ({
   iconColor,
   style,
 }) => {
-  const { hushTheme } = useChatStore();
+  // MEMORY FIX: Selective subscription instead of destructuring
+  const hushTheme = useChatStore((state) => state.hushTheme);
   const themeData = HUSH_THEMES[hushTheme] || HUSH_THEMES.DEFAULT;
 
   const theme = {
@@ -773,7 +779,8 @@ export const HushBadge: React.FC<HushBadgeProps> = ({
   showLock = false,
   style,
 }) => {
-  const { hushTheme } = useChatStore();
+  // MEMORY FIX: Selective subscription instead of destructuring
+  const hushTheme = useChatStore((state) => state.hushTheme);
   const themeData = HUSH_THEMES[hushTheme] || HUSH_THEMES.DEFAULT;
 
   const theme = {
@@ -874,7 +881,8 @@ export const HushInfoBox: React.FC<HushInfoBoxProps> = ({
   accessibilityLabel,
   accessibilityHint,
 }) => {
-  const { hushTheme } = useChatStore();
+  // MEMORY FIX: Selective subscription instead of destructuring
+  const hushTheme = useChatStore((state) => state.hushTheme);
   const themeData = HUSH_THEMES[hushTheme] || HUSH_THEMES.DEFAULT;
 
   const theme = {
