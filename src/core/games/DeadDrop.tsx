@@ -68,10 +68,9 @@ const getTheme = (classifiedTheme: string) => {
 };
 
 export const DeadDrop: React.FC<DeadDropProps> = ({ onComplete, onCancel, onViewGallery }) => {
-  const {
-    classifiedTheme,
-    forceUpdateDeadDropStreak,
-  } = useChatStore();
+  // MEMORY FIX: Selective subscriptions instead of destructuring
+  const classifiedTheme = useChatStore((state) => state.classifiedTheme);
+  const forceUpdateDeadDropStreak = useChatStore((state) => state.forceUpdateDeadDropStreak);
 
   // Subscribe to gameState changes - this will cause re-render when streak updates
   const gameState = useChatStore((state) => state.gameState);

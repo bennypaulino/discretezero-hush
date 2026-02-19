@@ -31,12 +31,11 @@ const getHushTheme = (hushTheme: string) => {
 };
 
 export const UnburdeningSelector: React.FC<UnburdingSelectorProps> = ({ onModeSelect, onCancel }) => {
-  const {
-    hushTheme,
-    subscriptionTier,
-    gameState,
-    triggerPaywall,
-  } = useChatStore();
+  // MEMORY FIX: Selective subscriptions instead of destructuring
+  const hushTheme = useChatStore((state) => state.hushTheme);
+  const subscriptionTier = useChatStore((state) => state.subscriptionTier);
+  const gameState = useChatStore((state) => state.gameState);
+  const triggerPaywall = useChatStore((state) => state.triggerPaywall);
   const theme = getHushTheme(hushTheme);
 
   const isPro = subscriptionTier === 'MONTHLY' || subscriptionTier === 'YEARLY';

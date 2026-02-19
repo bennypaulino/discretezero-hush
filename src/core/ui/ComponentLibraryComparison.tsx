@@ -19,7 +19,9 @@ interface ComponentLibraryComparisonProps {
 
 export const ComponentLibraryComparison: React.FC<ComponentLibraryComparisonProps> = ({ onClose }) => {
   const [activeTab, setActiveTab] = useState<'buttons' | 'cards' | 'inputs'>('buttons');
-  const { hushTheme, classifiedTheme } = useChatStore();
+  // MEMORY FIX: Selective subscriptions instead of destructuring
+  const hushTheme = useChatStore((state) => state.hushTheme);
+  const classifiedTheme = useChatStore((state) => state.classifiedTheme);
 
   // Get theme-aware colors
   const hushThemeData = HUSH_THEMES[hushTheme] || HUSH_THEMES.DEFAULT;

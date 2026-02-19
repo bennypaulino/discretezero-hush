@@ -6,6 +6,7 @@ import { useChatStore } from '../state/rootStore';
 import { HUSH_THEMES } from '../themes/themes';
 import { HushCloseButton, HushButton, HushCard, HushInput, HushScreenHeader, HushIconHeader } from '../../apps/hush/components/HushUI';
 import { getLocalDateString } from '../utils/dateUtils';
+import { useAnimatedValue } from '../hooks/useAnimatedValue';
 
 interface GratitudeProps {
   onComplete: () => void;
@@ -29,11 +30,10 @@ const getHushTheme = (hushTheme: string) => {
 };
 
 export const Gratitude: React.FC<GratitudeProps> = ({ onComplete, onCancel }) => {
-  const {
-    hushTheme,
-    subscriptionTier,
-    gameState,
-  } = useChatStore();
+  // MEMORY FIX: Selective subscriptions instead of destructuring
+  const hushTheme = useChatStore((state) => state.hushTheme);
+  const subscriptionTier = useChatStore((state) => state.subscriptionTier);
+  const gameState = useChatStore((state) => state.gameState);
   const theme = getHushTheme(hushTheme);
 
   const [gratitudeItems, setGratitudeItems] = useState<string[]>([]);
@@ -97,8 +97,9 @@ export const Gratitude: React.FC<GratitudeProps> = ({ onComplete, onCancel }) =>
   };
 
   // Celebration animation
-  const celebrationOpacity = new Animated.Value(0);
-  const celebrationScale = new Animated.Value(0.5);
+  // MEMORY FIX: Use hook instead of creating new Animated.Value on every render
+  const celebrationOpacity = useAnimatedValue(0);
+  const celebrationScale = useAnimatedValue(0.5);
 
   useEffect(() => {
     if (showCelebration) {
