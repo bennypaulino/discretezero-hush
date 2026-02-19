@@ -237,8 +237,8 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, tr
 
   const handleRestore = async () => {
     try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       if (!isMountedRef.current) return;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setIsRestoring(true);
 
       const result = await restorePurchases();

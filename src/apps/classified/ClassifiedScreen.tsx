@@ -4,7 +4,6 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useChatStore, Message } from '../../core/state/rootStore';
-import { useShallow } from 'zustand/react/shallow';
 import { useSecureLock } from '../../core/hooks/useSecureLock';
 import { useDoubleTap } from '../../core/hooks/useDoubleTap';
 import { useAppTheme } from '../../core/hooks/useAppTheme';
@@ -142,20 +141,16 @@ export const ClassifiedScreen = ({
   const unlockBadge = useChatStore((state) => state.unlockBadge);
 
   // Badge unlock notification
-  // CRITICAL: Use useShallow to prevent re-renders when gameState reference changes
-  // Only re-render when newlyUnlockedBadge VALUE changes (not gameState object reference)
-  const newlyUnlockedBadge = useChatStore(
-    useShallow((state) => state.gameState.newlyUnlockedBadge)
-  );
+  // NOTE: Zustand has built-in shallow comparison for primitive values
+  // No need for useShallow - it causes hooks violations in React 19
+  const newlyUnlockedBadge = useChatStore((state) => state.gameState.newlyUnlockedBadge);
   const setNewlyUnlockedBadge = useChatStore((state) => state.setNewlyUnlockedBadge);
 
   // Balanced upgrade toast state
   const messageCountSinceUpgradeOffer = useChatStore((state) => state.messageCountSinceUpgradeOffer);
   const balancedUpgradeOffered = useChatStore((state) => state.balancedUpgradeOffered);
-  // CRITICAL: Use useShallow to prevent re-renders when gameState reference changes
-  const activeGameId = useChatStore(
-    useShallow((state) => state.gameState.currentSession.activeGameId)
-  );
+  // NOTE: Zustand has built-in shallow comparison for primitive values
+  const activeGameId = useChatStore((state) => state.gameState.currentSession.activeGameId);
   const modeDownloadState = useChatStore((state) => state.modeDownloadState);
 
   // Model download error state
