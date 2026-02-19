@@ -613,7 +613,11 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
       <View
         style={[
           styles.container,
-          { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 },
+          {
+            paddingTop: insets.top + 20,
+            paddingBottom: insets.bottom + 20,
+            zIndex: 1, // Ensure content renders above background and prevents chat bleed-through
+          },
         ]}
       >
         {/* Main screen header (only show on main) */}
