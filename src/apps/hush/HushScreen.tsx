@@ -299,6 +299,37 @@ export const HushScreen = () => {
     }
   }, [isPro, proFirstLaunchSeen]);
 
+  // FlatList optimization: Memoize callbacks to prevent unnecessary re-renders
+  // IMPORTANT: Must be BEFORE early return to avoid hooks violation
+  const keyExtractor = useCallback((item: { id: string }) => item.id, []);
+
+  const contentContainerStyle = useMemo(() => ({
+    paddingBottom: 180,
+    flexGrow: 1
+  }), []);
+
+  const renderItem = useCallback(({ item }: { item: Message }) => {
+    // STREAMING (P1.11 Phase 0): Use subscribed streamingText to show tokens as they arrive
+    const displayText = item.id === streamingMessageId ? streamingText : item.text;
+
+    // TYPING INDICATOR (P1.11 Phase 7): Show typing animation for placeholder messages
+    // Placeholder messages have empty text and are waiting for AI response
+    const isPlaceholder = item.role === 'ai' && !displayText.trim() && !item.isComplete;
+
+    if (isPlaceholder) {
+      // Render typing indicator inside AI bubble
+      return (
+        <View style={[styles.messageRow, styles.aiRow]}>
+          <View style={styles.aiBubble}>
+            <TypingIndicator flavor="HUSH" color={activeTheme.colors.primary} />
+          </View>
+        </View>
+      );
+    }
+
+    return <PrivacyMessage text={displayText} isUser={item.role === 'user'} />;
+  }, [streamingMessageId, streamingText, activeTheme.colors.primary]);
+
   // Show "no model" placeholder if model not downloaded
   if (!modelDownloaded) {
     return (
@@ -512,36 +543,6 @@ Choose what you need right now.`;
           }).start();
       }, 100);
   };
-
-  // FlatList optimization: Memoize callbacks to prevent unnecessary re-renders
-  const keyExtractor = useCallback((item: { id: string }) => item.id, []);
-
-  const contentContainerStyle = useMemo(() => ({
-    paddingBottom: 180,
-    flexGrow: 1
-  }), []);
-
-  const renderItem = useCallback(({ item }: { item: Message }) => {
-    // STREAMING (P1.11 Phase 0): Use subscribed streamingText to show tokens as they arrive
-    const displayText = item.id === streamingMessageId ? streamingText : item.text;
-
-    // TYPING INDICATOR (P1.11 Phase 7): Show typing animation for placeholder messages
-    // Placeholder messages have empty text and are waiting for AI response
-    const isPlaceholder = item.role === 'ai' && !displayText.trim() && !item.isComplete;
-
-    if (isPlaceholder) {
-      // Render typing indicator inside AI bubble
-      return (
-        <View style={[styles.messageRow, styles.aiRow]}>
-          <View style={styles.aiBubble}>
-            <TypingIndicator flavor="HUSH" color={activeTheme.colors.primary} />
-          </View>
-        </View>
-      );
-    }
-
-    return <PrivacyMessage text={displayText} isUser={item.role === 'user'} />;
-  }, [streamingMessageId, streamingText, activeTheme.colors.primary]);
 
   return (
     // ROOT VIEW: Attach the hook handler here
