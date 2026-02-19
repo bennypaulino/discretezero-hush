@@ -2,7 +2,7 @@
   "expo": {
     "name": "Hush",
     "slug": "Hush",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "orientation": "portrait",
     "icon": "./assets/hush-icon-1024.png",
     "userInterfaceStyle": "light",
@@ -16,7 +16,7 @@
       "supportsTablet": true,
       "icon": "./assets/hush-icon-1024.png",
       "bundleIdentifier": "com.discretezero.hush",
-      "buildNumber": "43",
+      "buildNumber": "44",
       "deploymentTarget": "16.0",
       "infoPlist": {
         "MinimumOSVersion": "16.0",
@@ -34,7 +34,7 @@
     },
     "android": {
       "package": "com.discretezero.hush",
-      "versionCode": 25,
+      "versionCode": 26,
       "adaptiveIcon": {
         "foregroundImage": "./assets/hush-icon-512.png",
         "backgroundColor": "#1a0f2e"
