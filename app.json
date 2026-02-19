@@ -16,7 +16,7 @@
       "supportsTablet": true,
       "icon": "./assets/hush-icon-1024.png",
       "bundleIdentifier": "com.discretezero.hush",
-      "buildNumber": "42",
+      "buildNumber": "43",
       "deploymentTarget": "16.0",
       "infoPlist": {
         "MinimumOSVersion": "16.0",
@@ -34,7 +34,7 @@
     },
     "android": {
       "package": "com.discretezero.hush",
-      "versionCode": 23,
+      "versionCode": 24,
       "adaptiveIcon": {
         "foregroundImage": "./assets/hush-icon-512.png",
         "backgroundColor": "#1a0f2e"

@@ -35,6 +35,15 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, tr
   const redactedOpacity = useAnimatedValue(1);
   const insets = useSafeAreaInsets();
 
+  // Mount guard to prevent state updates after unmount
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   // Scanning animation for redacted bar (must be called unconditionally for hooks)
   useEffect(() => {
     if (trigger === 'classified_discovery' && visible) {
@@ -190,10 +199,12 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, tr
 
   const handleUpgrade = async (tier: 'MONTHLY' | 'YEARLY') => {
     try {
+      if (!isMountedRef.current) return;
       setIsPurchasing(true);
 
       const result = await purchaseByTier(tier);
 
+      if (!isMountedRef.current) return;
       setIsPurchasing(false);
 
       if (result.success) {
@@ -211,6 +222,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, tr
         }
       }
     } catch (error) {
+      if (!isMountedRef.current) return;
       setIsPurchasing(false);
       if (__DEV__) {
         console.error('[PaywallModal] Error in handleUpgrade:', error);
@@ -226,10 +238,12 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, tr
   const handleRestore = async () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      if (!isMountedRef.current) return;
       setIsRestoring(true);
 
       const result = await restorePurchases();
 
+      if (!isMountedRef.current) return;
       setIsRestoring(false);
 
       if (result.success) {
@@ -245,6 +259,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, tr
         );
       }
     } catch (error) {
+      if (!isMountedRef.current) return;
       setIsRestoring(false);
       if (__DEV__) {
         console.error('[PaywallModal] Error in handleRestore:', error);

@@ -15,6 +15,7 @@ import { useChatStore } from '../state/rootStore';
 let hasInitialized = false;
 let initializationPromise: Promise<void> | null = null;
 let currentUserId: string | null = null;
+let customerInfoListener: ((customerInfo: any) => void) | null = null;
 
 // ============================================================================
 // Constants
@@ -78,12 +79,14 @@ export function initializePurchases(): Promise<void> {
       await checkEntitlementStatus();
 
       // Listen for subscription changes (cross-device sync)
-      Purchases.addCustomerInfoUpdateListener((customerInfo) => {
+      // Store listener reference for cleanup
+      customerInfoListener = (customerInfo: any) => {
         if (__DEV__) {
           console.log('[Purchases] Customer info updated:', customerInfo);
         }
         updateSubscriptionFromEntitlements(customerInfo);
-      });
+      };
+      Purchases.addCustomerInfoUpdateListener(customerInfoListener);
 
     } catch (error) {
       if (__DEV__) {
@@ -508,4 +511,22 @@ export function getSavingsPercentage(
   const savings = ((yearlyAtMonthly - actualYearly) / yearlyAtMonthly) * 100;
 
   return Math.round(savings);
+}
+
+// ============================================================================
+// CLEANUP
+// ============================================================================
+
+/**
+ * Cleanup RevenueCat listeners and resources
+ * Should be called when app unmounts or payment system is no longer needed
+ */
+export function cleanupPurchases(): void {
+  if (customerInfoListener) {
+    Purchases.removeCustomerInfoUpdateListener(customerInfoListener);
+    customerInfoListener = null;
+    if (__DEV__) {
+      console.log('[Purchases] Customer info listener cleaned up');
+    }
+  }
 }
