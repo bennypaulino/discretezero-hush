@@ -31,6 +31,8 @@ interface MatrixColumnProps {
 
 const MatrixColumn = ({ columnIndex, delay, themeColor, trailLength }: MatrixColumnProps) => {
   const anim = useAnimatedValue(0);
+  // MEMORY FIX: Mount guard to prevent state updates after unmount
+  const isMountedRef = useRef(true);
 
   const columnWidth = width / COLUMN_COUNT;
   const startX = columnIndex * columnWidth;
@@ -44,6 +46,8 @@ const MatrixColumn = ({ columnIndex, delay, themeColor, trailLength }: MatrixCol
   );
 
   useEffect(() => {
+    isMountedRef.current = true;
+
     // Start falling animation with moderate speed variation
     const animation = Animated.timing(anim, {
       toValue: 1,
@@ -57,7 +61,7 @@ const MatrixColumn = ({ columnIndex, delay, themeColor, trailLength }: MatrixCol
 
     // Randomly change some characters during animation for glitch effect
     const glitchInterval = setInterval(() => {
-      if (Math.random() > 0.7) {
+      if (isMountedRef.current && Math.random() > 0.7) {
         setChars(prev => {
           const newChars = [...prev];
           const randomIndex = Math.floor(Math.random() * newChars.length);
@@ -68,6 +72,7 @@ const MatrixColumn = ({ columnIndex, delay, themeColor, trailLength }: MatrixCol
     }, 100);
 
     return () => {
+      isMountedRef.current = false;
       clearInterval(glitchInterval);
       animation.stop();
       anim.stopAnimation();
@@ -120,8 +125,13 @@ const MatrixColumn = ({ columnIndex, delay, themeColor, trailLength }: MatrixCol
 
 export const MatrixRainEffect = ({ onComplete }: { onComplete: () => void }) => {
   const classifiedTheme = useChatStore((state) => state.classifiedTheme);
-  const themeData = CLASSIFIED_THEMES[classifiedTheme as keyof typeof CLASSIFIED_THEMES] || CLASSIFIED_THEMES.TERMINAL_RED;
-  const themeColor = themeData.colors.primary; // Theme-aware color (not always green)
+
+  // MEMORY FIX: Memoize theme data to prevent recalculation on every render
+  const themeData = React.useMemo(
+    () => CLASSIFIED_THEMES[classifiedTheme as keyof typeof CLASSIFIED_THEMES] || CLASSIFIED_THEMES.TERMINAL_RED,
+    [classifiedTheme]
+  );
+  const themeColor = React.useMemo(() => themeData.colors.primary, [themeData]);
 
   // Progressive fade to black as rain falls
   const fadeAnim = useAnimatedValue(0);

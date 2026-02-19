@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
+import { View, StyleSheet, Animated, AppState } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
@@ -103,7 +103,22 @@ export default function App() {
     syncDownloadedModels();
     warmUpModel();
 
-    // Cleanup function
+    // MEMORY MONITORING: OS-native memory pressure detection (dev mode only)
+    // Helps catch Low Memory Killer issues early
+    if (__DEV__) {
+      const memoryWarningListener = AppState.addEventListener('memoryWarning', () => {
+        console.warn('[MEMORY] ⚠️ OS memory warning detected - app may be terminated if memory not freed');
+        console.warn('[MEMORY] Consider reducing animation complexity or clearing message history');
+      });
+
+      // Cleanup function
+      return () => {
+        cleanupPurchases();
+        memoryWarningListener?.remove();
+      };
+    }
+
+    // Cleanup function (production)
     return () => {
       cleanupPurchases();
     };
