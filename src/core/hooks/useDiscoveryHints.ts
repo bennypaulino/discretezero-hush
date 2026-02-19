@@ -10,17 +10,16 @@ export interface DiscoveryHintState {
 }
 
 export const useDiscoveryHints = () => {
-  const {
-    subscriptionTier,
-    classifiedDiscovered,
-    discoveryHintsEnabled,
-    hintProgressionLevel,
-    lastHintShownDate,
-    appOpenCount,
-    advanceHintProgression,
-    shouldShowHintToday,
-    markHintShownToday,
-  } = useChatStore();
+  // MEMORY FIX: Use selective subscriptions instead of destructuring (was 10 fields!)
+  const subscriptionTier = useChatStore((state) => state.subscriptionTier);
+  const classifiedDiscovered = useChatStore((state) => state.classifiedDiscovered);
+  const discoveryHintsEnabled = useChatStore((state) => state.discoveryHintsEnabled);
+  const hintProgressionLevel = useChatStore((state) => state.hintProgressionLevel);
+  const lastHintShownDate = useChatStore((state) => state.lastHintShownDate);
+  const appOpenCount = useChatStore((state) => state.appOpenCount);
+  const advanceHintProgression = useChatStore((state) => state.advanceHintProgression);
+  const shouldShowHintToday = useChatStore((state) => state.shouldShowHintToday);
+  const markHintShownToday = useChatStore((state) => state.markHintShownToday);
 
   const [hintState, setHintState] = useState<DiscoveryHintState>({
     shouldShowToast: false,

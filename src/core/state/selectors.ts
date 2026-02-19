@@ -34,8 +34,8 @@ export const selectFlavor = (state: StoreState) => state.flavor;
 
 export const selectSubscriptionTier = (state: StoreState) => state.subscriptionTier;
 export const selectRevenueCatUserId = (state: StoreState) => state.revenueCatUserId;
-export const selectDailyMessageCount = (state: StoreState) => state.dailyMessageCount;
-export const selectLastResetDate = (state: StoreState) => state.lastResetDate;
+export const selectDailyCount = (state: StoreState) => state.dailyCount;
+export const selectLastActiveDate = (state: StoreState) => state.lastActiveDate;
 
 // Derived selector - Pro user check
 export const selectIsProUser = (state: StoreState) =>
@@ -48,7 +48,6 @@ export const selectIsProUser = (state: StoreState) =>
 export const selectMessages = (state: StoreState) => state.messages;
 export const selectStreamingText = (state: StoreState) => state.streamingText;
 export const selectStreamingMessageId = (state: StoreState) => state.streamingMessageId;
-export const selectIsStreaming = (state: StoreState) => state.isStreaming;
 export const selectResponseStyleHush = (state: StoreState) => state.responseStyleHush;
 export const selectResponseStyleClassified = (state: StoreState) => state.responseStyleClassified;
 
@@ -68,23 +67,21 @@ export const selectBadges = (state: StoreState) => state.gameState?.badges;
 // ============================================================================
 
 export const selectIsPasscodeSet = (state: StoreState) => state.isPasscodeSet;
-export const selectIsBiometricEnabled = (state: StoreState) => state.isBiometricEnabled;
-export const selectIsDecoyModeEnabled = (state: StoreState) => state.isDecoyModeEnabled;
-export const selectHasSeenSecurityPrompt = (state: StoreState) => state.hasSeenSecurityPrompt;
+export const selectIsDuressCodeSet = (state: StoreState) => state.isDuressCodeSet;
+export const selectIsDecoyMode = (state: StoreState) => state.isDecoyMode;
 
 // ============================================================================
 // Onboarding Selectors
 // ============================================================================
 
 export const selectHasSeenPrivacyOnboarding = (state: StoreState) => state.hasSeenPrivacyOnboarding;
-export const selectHasSeenModelDownloadOnboarding = (state: StoreState) => state.hasSeenModelDownloadOnboarding;
+export const selectHasAttemptedModelDownload = (state: StoreState) => state.hasAttemptedModelDownload;
 
 // ============================================================================
 // Discovery Selectors
 // ============================================================================
 
-export const selectDiscoveryProgress = (state: StoreState) => state.discoveryProgress;
-export const selectHasDiscoveredClassified = (state: StoreState) => state.hasDiscoveredClassified;
+export const selectClassifiedDiscovered = (state: StoreState) => state.classifiedDiscovered;
 
 // ============================================================================
 // Store Actions (for when you need the setter functions)
@@ -95,8 +92,6 @@ export const selectDismissPaywall = (state: StoreState) => state.dismissPaywall;
 export const selectSetSubscription = (state: StoreState) => state.setSubscription;
 export const selectSetRevenueCatUserId = (state: StoreState) => state.setRevenueCatUserId;
 export const selectAddMessage = (state: StoreState) => state.addMessage;
-export const selectClearMessages = (state: StoreState) => state.clearMessages;
-export const selectSetStreamingText = (state: StoreState) => state.setStreamingText;
+export const selectClearAllMessages = (state: StoreState) => state.clearAllMessages;
 export const selectUnlockBadge = (state: StoreState) => state.unlockBadge;
-export const selectSetGameProgress = (state: StoreState) => state.setGameProgress;
 export const selectForceUpdateDeadDropStreak = (state: StoreState) => state.forceUpdateDeadDropStreak;

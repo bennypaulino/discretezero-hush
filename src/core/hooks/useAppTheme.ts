@@ -40,7 +40,12 @@ const applyHighContrastAdjustments = (theme: AppTheme): AppTheme => {
  * - High contrast mode (for WCAG AA compliance)
  */
 export const useAppTheme = (): AppTheme => {
-  const { flavor, hushTheme, classifiedTheme, discretionTheme, highContrastMode } = useChatStore();
+  // MEMORY FIX: Use selective subscriptions instead of destructuring
+  const flavor = useChatStore((state) => state.flavor);
+  const hushTheme = useChatStore((state) => state.hushTheme);
+  const classifiedTheme = useChatStore((state) => state.classifiedTheme);
+  const discretionTheme = useChatStore((state) => state.discretionTheme);
+  const highContrastMode = useChatStore((state) => state.highContrastMode);
 
   // Use current flavor or build-time flavor as fallback
   const activeFlavor = flavor || CURRENT_FLAVOR;
