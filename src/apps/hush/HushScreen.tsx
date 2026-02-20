@@ -214,14 +214,6 @@ export const HushScreen = () => {
     }
   }, [requestedSettingsScreen, requestSettingsScreen]);
 
-  // BUG FIX: Dismiss discovery hint toasts when Settings modal opens
-  // Prevents toast overlays (zIndex: 9999) from appearing on top of Settings
-  useEffect(() => {
-    if (modalVisible) {
-      dismissToast();
-    }
-  }, [modalVisible, dismissToast]);
-
   // Get messages to display based on decoy mode
   const displayMessages = useFilteredMessages('HUSH');
 
