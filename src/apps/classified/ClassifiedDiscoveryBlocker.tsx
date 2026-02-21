@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Switch } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Switch, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useChatStore } from '../../core/state/rootStore';
 import { ClassifiedPricingCard } from '../../core/games/components/ClassifiedUI';
+import { purchaseByTier } from '../../core/payment/Purchases';
 
 interface ClassifiedDiscoveryBlockerProps {
   visible: boolean; // Control visibility via Modal
@@ -18,9 +19,10 @@ export const ClassifiedDiscoveryBlocker: React.FC<ClassifiedDiscoveryBlockerProp
 }) => {
   const insets = useSafeAreaInsets();
   // MEMORY FIX: Selective subscription instead of destructuring
-  const setSubscription = useChatStore((state) => state.setSubscription);
+  const dismissPaywall = useChatStore((state) => state.dismissPaywall);
   const [toggleValue, setToggleValue] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
+  const [isPurchasing, setIsPurchasing] = useState(false);
 
   // Reset toggle state when modal closes
   useEffect(() => {
@@ -39,10 +41,27 @@ export const ClassifiedDiscoveryBlocker: React.FC<ClassifiedDiscoveryBlockerProp
     setShowPricing(value); // Show pricing when ON, hide when OFF
   };
 
-  const handlePurchase = (tier: 'MONTHLY' | 'YEARLY') => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setSubscription(tier);
-    onReturn(); // Return to Hush after purchase
+  const handlePurchase = async (tier: 'MONTHLY' | 'YEARLY') => {
+    setIsPurchasing(true);
+
+    const result = await purchaseByTier(tier);
+
+    setIsPurchasing(false);
+
+    if (result.success) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      dismissPaywall();
+      onReturn(); // Return to Hush after purchase
+    } else {
+      // Show error alert (unless user cancelled)
+      if (result.error !== 'Purchase cancelled') {
+        Alert.alert(
+          'Purchase Failed',
+          result.error || 'An error occurred. Please try again.',
+          [{ text: 'OK' }]
+        );
+      }
+    }
   };
 
   const handleReturnTap = () => {
@@ -120,14 +139,16 @@ export const ClassifiedDiscoveryBlocker: React.FC<ClassifiedDiscoveryBlockerProp
                 savings="50% OFF - LIMITED TIME"
                 popular={true}
                 tacticalColor={TERMINAL_RED}
-                onPress={() => handlePurchase('YEARLY')}
+                onPress={() => !isPurchasing && handlePurchase('YEARLY')}
+                disabled={isPurchasing}
               />
               <ClassifiedPricingCard
                 tier="OPERATOR ACCESS - MONTHLY"
                 price="$4.99"
                 period="per month"
                 tacticalColor={TERMINAL_RED}
-                onPress={() => handlePurchase('MONTHLY')}
+                onPress={() => !isPurchasing && handlePurchase('MONTHLY')}
+                disabled={isPurchasing}
               />
             </View>
           )}
