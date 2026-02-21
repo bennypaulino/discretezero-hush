@@ -616,7 +616,8 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
           {
             paddingTop: insets.top + 20,
             paddingBottom: insets.bottom + 20,
-            zIndex: 1, // Ensure content renders above background and prevents chat bleed-through
+            zIndex: 1, // iOS: Ensure content renders above background
+            elevation: 10, // Android: Ensure content renders above background and prevents chat bleed-through
           },
         ]}
       >
