@@ -596,9 +596,11 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
   return (
     <Modal
       visible={visible}
+      onRequestClose={handleClose} // Android back button support
       animationType={theme.isTerminal ? 'fade' : 'slide'}
       transparent={Platform.OS === 'ios'} // iOS: keep blur effect, Android: opaque modal
       presentationStyle="fullScreen"
+      statusBarTranslucent // Consistent status bar handling
       accessibilityViewIsModal={true}
     >
       {/* Background */}
