@@ -5,6 +5,7 @@
  * Supports all three app flavors (HUSH, CLASSIFIED, DISCRETION) plus BLOCKER mode.
  */
 
+import { Platform } from 'react-native';
 import type { AppFlavor } from '../../config';
 import type { HushTheme, ClassifiedTheme, DiscretionTheme } from './themes';
 import { HUSH_THEMES, CLASSIFIED_THEMES } from './themes';
@@ -45,7 +46,7 @@ export const getSettingsTheme = (
   if (mode === 'HUSH') {
     const hushThemeData = HUSH_THEMES[hushTheme];
     return {
-      bg: 'transparent',
+      bg: Platform.OS === 'android' ? hushThemeData.colors.background : 'transparent',
       text: '#FFFFFF',
       subtext: 'rgba(255, 255, 255, 0.6)',
       accent: hushThemeData.colors.primary,

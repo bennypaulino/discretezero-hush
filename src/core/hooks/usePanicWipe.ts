@@ -37,8 +37,9 @@ const SHAKE_THRESHOLD = 2.0; // g-force threshold to detect a shake (reduced fro
 const ACCELEROMETER_UPDATE_INTERVAL = 100; // ms - how often to check accelerometer
 
 export const usePanicWipe = (): { triggerPanicWipe: () => void } => {
-  // Only subscribe to values needed for effect dependencies
-  const { panicWipeEnabled, subscriptionTier } = useChatStore();
+  // MEMORY FIX: Use selective subscriptions instead of destructuring
+  const panicWipeEnabled = useChatStore((state) => state.panicWipeEnabled);
+  const subscriptionTier = useChatStore((state) => state.subscriptionTier);
 
   const pressTimestamps = useRef<number[]>([]);
   const lastTriggerTime = useRef<number>(0);

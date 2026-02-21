@@ -30,7 +30,10 @@ const getTheme = (hushTheme: string) => {
 };
 
 export const Breathe: React.FC<BreatheProps> = ({ onComplete, onCancel }) => {
-  const { hushTheme, subscriptionTier, triggerPaywall } = useChatStore();
+  // MEMORY FIX: Selective subscriptions instead of destructuring
+  const hushTheme = useChatStore((state) => state.hushTheme);
+  const subscriptionTier = useChatStore((state) => state.subscriptionTier);
+  const triggerPaywall = useChatStore((state) => state.triggerPaywall);
   const theme = getTheme(hushTheme);
 
   // Duration selection screen or breathing screen

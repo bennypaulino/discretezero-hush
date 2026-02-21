@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
+import { View, StyleSheet, Animated, AppState } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
@@ -12,6 +12,7 @@ import { DiscoverySequence } from './src/core/ui/DiscoverySequence';
 import { PasscodeGate } from './src/core/security/PasscodeGate';
 import { usePanicWipe } from './src/core/hooks/usePanicWipe';
 import { warmUpModel, syncDownloadedModels } from './src/core/engine/LocalAI';
+import { initializePurchases, cleanupPurchases } from './src/core/payment/Purchases';
 import { Breathe } from './src/core/games/Breathe';
 import { Gratitude } from './src/core/games/Gratitude';
 import { Unburdening } from './src/core/games/Unburdening';
@@ -95,9 +96,32 @@ export default function App() {
     checkDailyReset();
     incrementAppOpenCount();
 
+    // Initialize RevenueCat payment system (non-blocking, fire-and-forget)
+    initializePurchases();
+
     // Sync which models are downloaded and warm up AI model in background (non-blocking)
     syncDownloadedModels();
     warmUpModel();
+
+    // MEMORY MONITORING: OS-native memory pressure detection (dev mode only)
+    // Helps catch Low Memory Killer issues early
+    if (__DEV__) {
+      const memoryWarningListener = AppState.addEventListener('memoryWarning', () => {
+        console.warn('[MEMORY] ⚠️ OS memory warning detected - app may be terminated if memory not freed');
+        console.warn('[MEMORY] Consider reducing animation complexity or clearing message history');
+      });
+
+      // Cleanup function
+      return () => {
+        cleanupPurchases();
+        memoryWarningListener?.remove();
+      };
+    }
+
+    // Cleanup function (production)
+    return () => {
+      cleanupPurchases();
+    };
   }, []);
 
   // Handle flavor changes

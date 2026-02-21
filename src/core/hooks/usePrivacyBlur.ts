@@ -26,7 +26,8 @@ import { useChatStore } from '../state/rootStore';
  * ```
  */
 export const usePrivacyBlur = () => {
-  const { privacyBlurEnabled } = useChatStore();
+  // MEMORY FIX: Use selective subscription instead of destructuring
+  const privacyBlurEnabled = useChatStore((state) => state.privacyBlurEnabled);
   const [isPeeking, setIsPeeking] = useState(false);
 
   // Reset peek state when privacy blur is disabled globally

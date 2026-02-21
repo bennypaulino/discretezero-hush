@@ -43,7 +43,9 @@ const getHushTheme = (hushTheme: string) => {
 };
 
 export const UnburdeningFreeform: React.FC<UnburdeningFreeformProps> = ({ onComplete, onCancel }) => {
-  const { hushTheme, hushBurnStyle } = useChatStore();
+  // MEMORY FIX: Selective subscriptions instead of destructuring
+  const hushTheme = useChatStore((state) => state.hushTheme);
+  const hushBurnStyle = useChatStore((state) => state.hushBurnStyle);
   const theme = getHushTheme(hushTheme);
   const { playForAnimation } = useSoundEffect();
 

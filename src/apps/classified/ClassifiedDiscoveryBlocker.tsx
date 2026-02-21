@@ -17,7 +17,8 @@ export const ClassifiedDiscoveryBlocker: React.FC<ClassifiedDiscoveryBlockerProp
   onReturn,
 }) => {
   const insets = useSafeAreaInsets();
-  const { setSubscription } = useChatStore();
+  // MEMORY FIX: Selective subscription instead of destructuring
+  const setSubscription = useChatStore((state) => state.setSubscription);
   const [toggleValue, setToggleValue] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
 

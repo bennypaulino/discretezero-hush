@@ -27,6 +27,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Linking,
+  Platform,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
@@ -43,7 +45,9 @@ import { AISettings } from './AISettings';
 import { AppearanceSettings } from './AppearanceSettings';
 import { AboutSettings } from './AboutSettings';
 import { TestingSettings } from './TestingSettings';
+import { MembershipSettings } from './MembershipSettings';
 import type { Screen } from './shared/types';
+import { getRevenueCatUserId } from '../../payment/Purchases';
 
 interface SettingsContainerProps {
   visible: boolean;
@@ -254,50 +258,6 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
         </View>
       )}
 
-      {/* MEMBERSHIP */}
-      <View
-        style={[
-          styles.section,
-          { borderBottomColor: theme.divider, borderBottomWidth: StyleSheet.hairlineWidth },
-        ]}
-      >
-        {effectiveMode === 'DISCRETION' ? (
-          <Text style={[styles.sectionTitle, { color: '#FFFFFF', fontFamily: theme.fontHeader }]}>
-            ACCOUNT MEMBERSHIP
-          </Text>
-        ) : (
-          <Text style={[styles.sectionTitle, { color: theme.subtext, fontFamily: theme.fontHeader }]}>
-            {theme.isTerminal ? 'CLEARANCE_LEVEL' : 'Membership'}
-          </Text>
-        )}
-        <View style={styles.row}>
-          <SettingsOptionButton
-            label="Free"
-            isSelected={subscriptionTier === 'FREE'}
-            onSelect={() => handleSubChange('FREE')}
-            theme={theme}
-            effectiveMode={effectiveMode}
-            classifiedTheme={classifiedTheme}
-          />
-          <SettingsOptionButton
-            label="Monthly"
-            isSelected={subscriptionTier === 'MONTHLY'}
-            onSelect={() => handleSubChange('MONTHLY')}
-            theme={theme}
-            effectiveMode={effectiveMode}
-            classifiedTheme={classifiedTheme}
-          />
-          <SettingsOptionButton
-            label="Yearly"
-            isSelected={subscriptionTier === 'YEARLY'}
-            onSelect={() => handleSubChange('YEARLY')}
-            theme={theme}
-            effectiveMode={effectiveMode}
-            classifiedTheme={classifiedTheme}
-          />
-        </View>
-      </View>
-
       {/* DISCRETION THEME - Show above nav rows for Discretion */}
       {effectiveMode === 'DISCRETION' && !isBlocker && (
         <View style={styles.section}>
@@ -342,9 +302,25 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
       {/* NAV ROWS - Only in HUSH/CLASSIFIED/DISCRETION (not BLOCKER) */}
       {!isBlocker && (
         <View style={styles.navSection}>
+          {/* Membership - FREE users only */}
+          {subscriptionTier === 'FREE' && (
+            <SettingsNavRow
+              icon="lock-open"
+              label="Membership"
+              sublabel={
+                subscriptionTier === 'FREE' ? 'Free' :
+                subscriptionTier === 'MONTHLY' ? 'Monthly' : 'Yearly'
+              }
+              onPress={() => navigateTo('membership')}
+              theme={theme}
+              effectiveMode={effectiveMode}
+              classifiedTheme={classifiedTheme}
+            />
+          )}
+
           {/* AI - All flavors (A) */}
           <SettingsNavRow
-            icon="hardware-chip"
+            icon="sparkles"
             label={theme.isTerminal ? 'AI_Config' : 'AI'}
             sublabel={getAISummary()}
             onPress={() => navigateTo('ai')}
@@ -559,6 +535,20 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
       );
     }
 
+    // Membership screen
+    if (currentScreen === 'membership') {
+      return (
+        <MembershipSettings
+          currentScreen={currentScreen as import('./shared/types').MembershipScreen}
+          onGoBack={goBack}
+          onClose={onClose}
+          effectiveMode={effectiveMode}
+          theme={theme}
+          isPro={isPro}
+        />
+      );
+    }
+
     // Appearance screens
     if (['appearance', 'clearStyle', 'responseStyle'].includes(currentScreen)) {
       return (
@@ -606,24 +596,36 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
   return (
     <Modal
       visible={visible}
+      onRequestClose={handleClose} // Android back button support
       animationType={theme.isTerminal ? 'fade' : 'slide'}
-      transparent
+      transparent={Platform.OS === 'ios'} // iOS: keep blur effect, Android: opaque modal
+      presentationStyle={Platform.OS === 'android' ? 'fullScreen' : 'overFullScreen'} // iOS doesn't support fullScreen + transparent
+      statusBarTranslucent // Consistent status bar handling
       accessibilityViewIsModal={true}
     >
       {/* Background */}
-      {effectiveMode === 'HUSH' ? (
+      {Platform.OS === 'android' ? (
+        // Android: Solid background (opaque Modal required for z-ordering)
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.bg }]} />
+      ) : effectiveMode === 'HUSH' ? (
+        // iOS: Blur effect for Hush mode
         <View style={StyleSheet.absoluteFill}>
           <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
           <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0, 0, 0, 0.3)' }]} />
         </View>
       ) : (
+        // iOS: Solid background for other modes
         <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.bg, opacity: 0.98 }]} />
       )}
 
       <View
         style={[
           styles.container,
-          { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 },
+          {
+            paddingTop: insets.top + 20,
+            paddingBottom: insets.bottom + 20,
+            zIndex: 1, // iOS: Ensure content renders above background
+          },
         ]}
       >
         {/* Main screen header (only show on main) */}

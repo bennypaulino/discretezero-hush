@@ -15,7 +15,12 @@ interface PrivacyOnboardingProps {
 
 export function PrivacyOnboarding({ visible, onComplete }: PrivacyOnboardingProps) {
   const [step, setStep] = useState<'welcome' | 'verification' | 'comparison'>('welcome');
-  const { hushTheme, flavor, subscriptionTier } = useChatStore();
+
+  // MEMORY FIX: Selective subscriptions instead of destructuring
+  const hushTheme = useChatStore((state) => state.hushTheme);
+  const flavor = useChatStore((state) => state.flavor);
+  const subscriptionTier = useChatStore((state) => state.subscriptionTier);
+
   const theme = HUSH_THEMES[hushTheme] || HUSH_THEMES.DEFAULT;
   const isPro = subscriptionTier !== 'FREE';
 

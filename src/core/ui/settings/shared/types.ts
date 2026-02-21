@@ -9,6 +9,7 @@ import type { AppFlavor } from '../../../../config';
  */
 export type Screen =
   | 'main'
+  | 'membership'
   | 'security'
   | 'appearance'
   | 'clearStyle'
@@ -60,6 +61,11 @@ export type AboutScreen =
   | 'achievementGallery'
   | 'privacyVerification'
   | 'privacyDashboard';
+
+/**
+ * Membership/Subscription-related screens
+ */
+export type MembershipScreen = 'membership';
 
 /**
  * Valid navigation targets (can navigate to any screen or main)

@@ -115,7 +115,7 @@ interface LegacyCompatibilitySlice {
 }
 
 // Combined store type (will expand as we add more slices)
-type StoreState = AppearanceSlice
+export type StoreState = AppearanceSlice
   & PanicWipeSlice
   & ThemingSlice
   & ChatSlice

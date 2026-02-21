@@ -4,7 +4,8 @@ import { useChatStore } from '../state/rootStore';
 
 export const useDoubleTap = () => {
   const lastTap = useRef<number>(0);
-  const { togglePrivacyBlur } = useChatStore();
+  // MEMORY FIX: Use selective subscription instead of destructuring
+  const togglePrivacyBlur = useChatStore((state) => state.togglePrivacyBlur);
 
   const handleDoubleTap = () => {
     const now = Date.now();

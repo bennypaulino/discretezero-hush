@@ -4,7 +4,6 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useChatStore, Message } from '../../core/state/rootStore';
-import { useShallow } from 'zustand/react/shallow';
 import { useAppTheme } from '../../core/hooks/useAppTheme';
 import { useSecureLock } from '../../core/hooks/useSecureLock';
 import { useDoubleTap } from '../../core/hooks/useDoubleTap';
@@ -94,21 +93,19 @@ export const HushScreen = () => {
   const streamingText = useChatStore((state) => state.streamingText);
 
   // Badge unlock notification
-  // CRITICAL: Use useShallow to prevent re-renders when gameState reference changes
-  // Only re-render when newlyUnlockedBadge VALUE changes (not gameState object reference)
-  const newlyUnlockedBadge = useChatStore(
-    useShallow((state) => state.gameState.newlyUnlockedBadge)
-  );
+  // NOTE: Zustand has built-in shallow comparison for primitive values
+  // No need for useShallow - it causes hooks violations in React 19
+  const newlyUnlockedBadge = useChatStore((state) => state.gameState.newlyUnlockedBadge);
   const setNewlyUnlockedBadge = useChatStore((state) => state.setNewlyUnlockedBadge);
 
   // Balanced upgrade toast state
   const messageCountSinceUpgradeOffer = useChatStore((state) => state.messageCountSinceUpgradeOffer);
   const balancedUpgradeOffered = useChatStore((state) => state.balancedUpgradeOffered);
-  // CRITICAL: Use useShallow to prevent re-renders when gameState reference changes
-  const activeGameId = useChatStore(
-    useShallow((state) => state.gameState.currentSession.activeGameId)
-  );
+  // NOTE: Zustand has built-in shallow comparison for primitive values
+  const activeGameId = useChatStore((state) => state.gameState.currentSession.activeGameId);
   const modeDownloadState = useChatStore((state) => state.modeDownloadState);
+  // Dedicated selector for balanced download state (prevents re-render issues with nested properties)
+  const balancedDownloadState = useChatStore((state) => state.modeDownloadState.balanced);
 
   // Model download error state
   const downloadError = useChatStore((state) => state.downloadError);
@@ -215,7 +212,7 @@ export const HushScreen = () => {
       setModalVisible(true);
       requestSettingsScreen(null); // Clear the request
     }
-  }, [requestedSettingsScreen]);
+  }, [requestedSettingsScreen, requestSettingsScreen]);
 
   // Get messages to display based on decoy mode
   const displayMessages = useFilteredMessages('HUSH');
@@ -245,7 +242,7 @@ export const HushScreen = () => {
         messageCountSinceUpgradeOffer < 10 ||
         messageCountSinceUpgradeOffer > 20 ||
         balancedUpgradeOffered ||
-        modeDownloadState.balanced === 'downloaded'
+        balancedDownloadState === 'downloaded'
       ) {
         return;
       }
@@ -282,65 +279,53 @@ export const HushScreen = () => {
     return () => {
       balancedToastCancelledRef.current = true;
     };
-  }, [messageCountSinceUpgradeOffer, balancedUpgradeOffered, modeDownloadState.balanced, activeGameId]);
+  }, [messageCountSinceUpgradeOffer, balancedUpgradeOffered, balancedDownloadState, activeGameId]);
 
   // --- AUTO-SCROLL ON NEW MESSAGES ---
   // Scroll to bottom when messages change (e.g., AI responds)
   useAutoScroll(flatListRef, displayMessages.length);
 
-  // Show "no model" placeholder if model not downloaded
-  if (!modelDownloaded) {
-    return (
-      <View style={[styles.container, { backgroundColor: activeTheme.colors.background, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }]}>
-        <Ionicons name="cloud-offline" size={80} color={activeTheme.colors.subtext} />
+  // Show Pro welcome modal if user just upgraded
+  // IMPORTANT: Must be BEFORE early return to avoid hooks violation
+  useEffect(() => {
+    if (isPro && !proFirstLaunchSeen) {
+      const timer = setTimeout(() => {
+        setShowProWelcome(true);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isPro, proFirstLaunchSeen]);
 
-        <Text style={[styles.noModelTitle, { color: activeTheme.colors.text }]}>AI Model Not Downloaded</Text>
+  // FlatList optimization: Memoize callbacks to prevent unnecessary re-renders
+  // IMPORTANT: Must be BEFORE early return to avoid hooks violation
+  const keyExtractor = useCallback((item: { id: string }) => item.id, []);
 
-        <Text style={[styles.noModelDescription, { color: activeTheme.colors.subtext }]}>
-          To chat, download the 1.6 GB AI model.{'\n'}
-          Works 100% offline after download.
-        </Text>
+  const contentContainerStyle = useMemo(() => ({
+    paddingBottom: 180,
+    flexGrow: 1
+  }), []);
 
-        <TouchableOpacity
-          style={[styles.downloadButton, { backgroundColor: activeTheme.colors.primary }]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            useChatStore.setState({ showModelDownloadPrompt: true });
-          }}
-          accessibilityLabel="Download AI model"
-          accessibilityRole="button"
-          accessibilityHint="Opens download flow for 1.6 GB AI model"
-        >
-          <Text style={styles.downloadButtonText}>Download AI Model</Text>
-        </TouchableOpacity>
+  const renderItem = useCallback(({ item }: { item: Message }) => {
+    // STREAMING (P1.11 Phase 0): Use subscribed streamingText to show tokens as they arrive
+    const displayText = item.id === streamingMessageId ? streamingText : item.text;
 
-        <Text style={[styles.exploreNote, { color: activeTheme.colors.dimSubtext || '#666' }]}>
-          Or explore settings via the menu
-        </Text>
+    // TYPING INDICATOR (P1.11 Phase 7): Show typing animation for placeholder messages
+    // Placeholder messages have empty text and are waiting for AI response
+    const isPlaceholder = item.role === 'ai' && !displayText.trim() && !item.isComplete;
 
-        <SettingsModal
-          visible={modalVisible}
-          onClose={() => {
-            setModalVisible(false);
-            setSettingsInitialScreen(undefined);
-          }}
-          initialScreen={settingsInitialScreen}
-        />
-
-        <View style={styles.noModelMenuButton}>
-          <TouchableOpacity
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setModalVisible(true);
-            }}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons name="menu" size={24} color="#666" />
-          </TouchableOpacity>
+    if (isPlaceholder) {
+      // Render typing indicator inside AI bubble
+      return (
+        <View style={[styles.messageRow, styles.aiRow]}>
+          <View style={styles.aiBubble}>
+            <TypingIndicator flavor="HUSH" color={activeTheme.colors.primary} />
+          </View>
         </View>
-      </View>
-    );
-  }
+      );
+    }
+
+    return <PrivacyMessage text={displayText} isUser={item.role === 'user'} />;
+  }, [streamingMessageId, streamingText, activeTheme.colors.primary]);
 
   const handleSend = () => {
     if (!input.trim()) return;
@@ -390,7 +375,7 @@ Choose what you need right now.`;
     setInput('');
 
     // Increment message count for Balanced upgrade toast tracking
-    if (!balancedUpgradeOffered && modeDownloadState.balanced !== 'downloaded') {
+    if (!balancedUpgradeOffered && balancedDownloadState !== 'downloaded') {
       useChatStore.setState((state) => ({
         messageCountSinceUpgradeOffer: state.messageCountSinceUpgradeOffer + 1,
       }));
@@ -425,16 +410,6 @@ Choose what you need right now.`;
     setShowBalancedToast(false);
     useChatStore.setState({ balancedUpgradeDeclined: true });
   };
-
-  // Show Pro welcome modal if user just upgraded
-  useEffect(() => {
-    if (isPro && !proFirstLaunchSeen) {
-      const timer = setTimeout(() => {
-        setShowProWelcome(true);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [isPro, proFirstLaunchSeen]);
 
   // --- ANIMATION HANDLERS ---
     const handleClear = () => {
@@ -512,36 +487,6 @@ Choose what you need right now.`;
       }, 100);
   };
 
-  // FlatList optimization: Memoize callbacks to prevent unnecessary re-renders
-  const keyExtractor = useCallback((item: { id: string }) => item.id, []);
-
-  const contentContainerStyle = useMemo(() => ({
-    paddingBottom: 180,
-    flexGrow: 1
-  }), []);
-
-  const renderItem = useCallback(({ item }: { item: Message }) => {
-    // STREAMING (P1.11 Phase 0): Use subscribed streamingText to show tokens as they arrive
-    const displayText = item.id === streamingMessageId ? streamingText : item.text;
-
-    // TYPING INDICATOR (P1.11 Phase 7): Show typing animation for placeholder messages
-    // Placeholder messages have empty text and are waiting for AI response
-    const isPlaceholder = item.role === 'ai' && !displayText.trim() && !item.isComplete;
-
-    if (isPlaceholder) {
-      // Render typing indicator inside AI bubble
-      return (
-        <View style={[styles.messageRow, styles.aiRow]}>
-          <View style={styles.aiBubble}>
-            <TypingIndicator flavor="HUSH" color={activeTheme.colors.primary} />
-          </View>
-        </View>
-      );
-    }
-
-    return <PrivacyMessage text={displayText} isUser={item.role === 'user'} />;
-  }, [streamingMessageId, streamingText, activeTheme.colors.primary]);
-
   return (
     // ROOT VIEW: Attach the hook handler here
     <View
@@ -606,8 +551,51 @@ Choose what you need right now.`;
           mode={paywallReason === 'daily_limit' || paywallReason === 'gratitude_streak_cap' ? 'fullscreen' : 'modal'}
         />
 
-        {/* --- ANIMATION CONTEXT PROVIDER --- */}
-        <ClearAnimationProvider enabled={hushBurnStyle === 'clear'}>
+        {/* --- CONDITIONAL RENDERING: No Model vs Main Chat UI --- */}
+        {!modelDownloaded ? (
+          /* NO MODEL PLACEHOLDER */
+          <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }]}>
+            <Ionicons name="cloud-offline" size={80} color={activeTheme.colors.subtext} />
+
+            <Text style={[styles.noModelTitle, { color: activeTheme.colors.text }]}>AI Model Not Downloaded</Text>
+
+            <Text style={[styles.noModelDescription, { color: activeTheme.colors.subtext }]}>
+              To chat, download the 1.6 GB AI model.{'\n'}
+              Works 100% offline after download.
+            </Text>
+
+            <TouchableOpacity
+              style={[styles.downloadButton, { backgroundColor: activeTheme.colors.primary }]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                useChatStore.setState({ showModelDownloadPrompt: true });
+              }}
+              accessibilityLabel="Download AI model"
+              accessibilityRole="button"
+              accessibilityHint="Opens download flow for 1.6 GB AI model"
+            >
+              <Text style={styles.downloadButtonText}>Download AI Model</Text>
+            </TouchableOpacity>
+
+            <Text style={[styles.exploreNote, { color: activeTheme.colors.dimSubtext || '#666' }]}>
+              Or explore settings via the menu
+            </Text>
+
+            <View style={styles.noModelMenuButton}>
+              <TouchableOpacity
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setModalVisible(true);
+                }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="menu" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          /* MAIN CHAT INTERFACE */
+          <ClearAnimationProvider enabled={hushBurnStyle === 'clear'}>
             {/* --- PARTICLE LAYER --- */}
             {isClearing && renderClearAnimation(hushBurnStyle, false, onDustComplete)}
 
@@ -743,6 +731,7 @@ Choose what you need right now.`;
             </View>
         </KeyboardAvoidingView>
         </ClearAnimationProvider>
+        )}
 
         {/* SPACER for Home Bar */}
         <View style={{ height: Math.max(insets.bottom, 20), backgroundColor: activeTheme.colors.background }} />

@@ -16,7 +16,12 @@ import { useChatStore } from '../state/rootStore';
  * NOTE: Discretion mode bypasses passcode - only Hush and Classified use locking
  */
 export const useSecureLock = () => {
-  const { isLocked, setLocked, isPasscodeSet, flavor, checkDailyReset } = useChatStore();
+  // MEMORY FIX: Use selective subscriptions instead of destructuring
+  const isLocked = useChatStore((state) => state.isLocked);
+  const setLocked = useChatStore((state) => state.setLocked);
+  const isPasscodeSet = useChatStore((state) => state.isPasscodeSet);
+  const flavor = useChatStore((state) => state.flavor);
+  const checkDailyReset = useChatStore((state) => state.checkDailyReset);
 
   const lastUnlockTime = useRef<number>(0);
 

@@ -425,6 +425,7 @@ interface ClassifiedPricingCardProps {
   popular?: boolean;
   tacticalColor: string;
   onPress: () => void;
+  disabled?: boolean;
 }
 
 export const ClassifiedPricingCard: React.FC<ClassifiedPricingCardProps> = ({
@@ -434,7 +435,8 @@ export const ClassifiedPricingCard: React.FC<ClassifiedPricingCardProps> = ({
   savings,
   popular = false,
   tacticalColor,
-  onPress
+  onPress,
+  disabled = false
 }) => (
   <TouchableOpacity
     style={{
@@ -445,12 +447,14 @@ export const ClassifiedPricingCard: React.FC<ClassifiedPricingCardProps> = ({
       borderRadius: 8,
       padding: 20,
       marginBottom: 12,
+      opacity: disabled ? 0.5 : 1,
     }}
     onPress={() => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       onPress();
     }}
     activeOpacity={0.7}
+    disabled={disabled}
   >
     <View style={{ flex: 1 }}>
       <Text style={{

@@ -64,7 +64,8 @@ const CLASSIFIED_SOUND_MAP: Record<ClassifiedBurnType, 'charging' | 'dotmatrix' 
 };
 
 export const useSoundEffect = () => {
-  const { animationSounds } = useChatStore();
+  // MEMORY FIX: Use selective subscription instead of destructuring
+  const animationSounds = useChatStore((state) => state.animationSounds);
   const loadedSounds = useRef<Record<string, AudioPlayer | null>>({
     breeze: null,
     charging: null,

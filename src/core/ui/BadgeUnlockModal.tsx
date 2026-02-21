@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useChatStore, getBadgeTierDisplayName, BadgeId } from '../state/rootStore';
-import { useShallow } from 'zustand/react/shallow';
 import { HUSH_THEMES, CLASSIFIED_THEMES, DISCRETION_THEMES } from '../themes/themes';
 import { CURRENT_FLAVOR, AppFlavor } from '../../config';
 
@@ -67,10 +66,9 @@ const BADGE_DEFINITIONS: Record<string, { name: string; description: string; tie
 
 export function BadgeUnlockModal({ visible, onClose, onViewGallery }: BadgeUnlockModalProps) {
   // Access newlyUnlockedBadge from gameState (nested property)
-  // CRITICAL: Use useShallow to prevent re-renders when gameState reference changes
-  const newlyUnlockedBadge = useChatStore(
-    useShallow((state) => state.gameState?.newlyUnlockedBadge)
-  );
+  // NOTE: Zustand has built-in shallow comparison for primitive values
+  // No need for useShallow - it causes hooks violations in React 19
+  const newlyUnlockedBadge = useChatStore((state) => state.gameState?.newlyUnlockedBadge);
 
   // PERFORMANCE FIX: Use selective subscriptions instead of destructuring entire store
   // Destructuring subscribes to EVERY state change including streamingText (50-200 updates/response)

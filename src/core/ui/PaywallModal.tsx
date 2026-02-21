@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, Animated, Switch } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, Animated, Switch, Alert } from 'react-native';
 import { useAnimatedValue } from '../hooks/useAnimatedValue';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { useChatStore } from '../state/rootStore';
 import { AppFlavor } from '../../config';
 import { HushCloseButton } from '../../apps/hush/components/HushUI';
 import { ClassifiedPricingCard } from '../games/components/ClassifiedUI';
+import { purchaseByTier, restorePurchases } from '../payment/Purchases';
 
 interface PaywallModalProps {
   visible: boolean;
@@ -29,8 +30,19 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, tr
   const [showFullFeatures, setShowFullFeatures] = useState(false);
   const [toggleValue, setToggleValue] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
   const redactedOpacity = useAnimatedValue(1);
   const insets = useSafeAreaInsets();
+
+  // Mount guard to prevent state updates after unmount
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Scanning animation for redacted bar (must be called unconditionally for hooks)
   useEffect(() => {
@@ -154,7 +166,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, tr
   // Top 5 features
   const topFeatures = [
     { icon: 'flash', text: 'Unlimited daily exchanges' },
-    { icon: 'color-palette', text: 'All burn animations' },
+    { icon: 'color-palette', text: 'All clear animations' },
     { icon: 'brush', text: 'All themes' },
     { icon: 'leaf', text: 'Extended mindful practices' },
     { icon: 'shield-checkmark', text: 'Premium security features' },
@@ -163,7 +175,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, tr
   // Full feature list (expandable)
   const fullFeatures = [
     'Unlimited daily exchanges',
-    'All burn animations',
+    'All clear animations',
     'All themes',
     'Extended mindful practices (5min, 10min, custom breathwork)',
     'Premium security features (Panic Wipe)',
@@ -185,23 +197,79 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, tr
     }
   };
 
-  const handleUpgrade = (tier: 'MONTHLY' | 'YEARLY') => {
+  const handleUpgrade = async (tier: 'MONTHLY' | 'YEARLY') => {
     try {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setSubscription(tier); // This will automatically trigger showPostPurchaseCelebration in store
-      dismissPaywall();
-      onClose();
+      if (!isMountedRef.current) return;
+      setIsPurchasing(true);
+
+      const result = await purchaseByTier(tier);
+
+      if (!isMountedRef.current) return;
+      setIsPurchasing(false);
+
+      if (result.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        dismissPaywall();
+        onClose();
+      } else {
+        // Show error alert (unless user cancelled)
+        if (result.error !== 'Purchase cancelled') {
+          Alert.alert(
+            'Purchase Failed',
+            result.error || 'An error occurred. Please try again.',
+            [{ text: 'OK' }]
+          );
+        }
+      }
     } catch (error) {
+      if (!isMountedRef.current) return;
+      setIsPurchasing(false);
       if (__DEV__) {
         console.error('[PaywallModal] Error in handleUpgrade:', error);
       }
+      Alert.alert(
+        'Purchase Failed',
+        'An unexpected error occurred. Please try again.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
-  const handleRestore = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    // TODO: Implement restore purchase (RevenueCat)
-    alert('Restore purchase will be implemented with RevenueCat integration.');
+  const handleRestore = async () => {
+    try {
+      if (!isMountedRef.current) return;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setIsRestoring(true);
+
+      const result = await restorePurchases();
+
+      if (!isMountedRef.current) return;
+      setIsRestoring(false);
+
+      if (result.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert('Success', 'Your purchases have been restored!', [{ text: 'OK' }]);
+        dismissPaywall();
+        onClose();
+      } else {
+        Alert.alert(
+          'Restore Failed',
+          result.error || 'No previous purchases found.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      if (!isMountedRef.current) return;
+      setIsRestoring(false);
+      if (__DEV__) {
+        console.error('[PaywallModal] Error in handleRestore:', error);
+      }
+      Alert.alert(
+        'Restore Failed',
+        'An unexpected error occurred. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   const handleToggleChange = (value: boolean) => {
@@ -219,6 +287,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, tr
   ) => (
     <TouchableOpacity
       onPress={() => handleUpgrade(tier)}
+      disabled={isPurchasing || isRestoring}
       activeOpacity={0.7}
       style={[
         styles.pricingCard,
@@ -226,6 +295,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, tr
           backgroundColor: theme.card,
           borderColor: popular ? theme.accent : theme.border,
           borderWidth: popular ? 2 : 1,
+          opacity: (isPurchasing || isRestoring) ? 0.5 : 1,
         },
       ]}
     >
@@ -320,14 +390,16 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, tr
                     savings="50% OFF - LIMITED TIME"
                     popular={true}
                     tacticalColor={TERMINAL_RED}
-                    onPress={() => handleUpgrade('YEARLY')}
+                    onPress={() => !isPurchasing && !isRestoring && handleUpgrade('YEARLY')}
+                    disabled={isPurchasing || isRestoring}
                   />
                   <ClassifiedPricingCard
                     tier="OPERATOR ACCESS - MONTHLY"
                     price="$4.99"
                     period="per month"
                     tacticalColor={TERMINAL_RED}
-                    onPress={() => handleUpgrade('MONTHLY')}
+                    onPress={() => !isPurchasing && !isRestoring && handleUpgrade('MONTHLY')}
+                    disabled={isPurchasing || isRestoring}
                   />
                 </View>
               )}
@@ -502,8 +574,14 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, tr
             )}
 
             {/* Restore Purchase */}
-            <TouchableOpacity onPress={handleRestore} style={styles.restoreButton}>
-              <Text style={[styles.restoreText, { color: theme.subtext }]}>Restore Purchase</Text>
+            <TouchableOpacity
+              onPress={handleRestore}
+              disabled={isPurchasing || isRestoring}
+              style={[styles.restoreButton, { opacity: (isPurchasing || isRestoring) ? 0.5 : 1 }]}
+            >
+              <Text style={[styles.restoreText, { color: theme.subtext }]}>
+                {isRestoring ? 'Restoring...' : 'Restore Purchase'}
+              </Text>
             </TouchableOpacity>
           </ScrollView>
         </View>

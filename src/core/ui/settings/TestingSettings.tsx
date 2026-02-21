@@ -14,7 +14,9 @@ import { SESSION_PAYWALL_CAP } from '../../state/slices/subscriptionSlice';
 import type { BadgeId, GameId } from '../../state/types';
 import { SettingsSubHeader } from './shared/SettingsSubHeader';
 import { SettingsToggleRow } from './shared/SettingsToggleRow';
+import { SettingsOptionButton } from './shared/SettingsOptionButton';
 import type { SettingsTheme } from '../../themes/settingsThemeEngine';
+import type { ClassifiedTheme } from '../../themes/themes';
 
 interface TestingSettingsProps {
   onGoBack: () => void;
@@ -37,8 +39,10 @@ export const TestingSettings: React.FC<TestingSettingsProps> = ({ onGoBack, them
   const dailyCount = useChatStore((state) => state.dailyCount);
   const lastActiveDate = useChatStore((state) => state.lastActiveDate);
   const subscriptionTier = useChatStore((state) => state.subscriptionTier);
+  const setSubscription = useChatStore((state) => state.setSubscription);
   const sessionPaywallShowCount = useChatStore((state) => state.sessionPaywallShowCount);
   const dismissedPaywallTriggers = useChatStore((state) => state.dismissedPaywallTriggers);
+  const classifiedTheme = useChatStore((state) => state.classifiedTheme);
 
   const panicWipeEnabled = useChatStore((state) => state.panicWipeEnabled);
   const clearHistory = useChatStore((state) => state.clearHistory);
@@ -49,6 +53,10 @@ export const TestingSettings: React.FC<TestingSettingsProps> = ({ onGoBack, them
   const setNewlyUnlockedBadge = useChatStore((state) => state.setNewlyUnlockedBadge);
 
   // Local accordion state
+  const [subscriptionExpanded, setSubscriptionExpanded] = useState(true); // Default expanded for easy access
+  const [classifiedExpanded, setClassifiedExpanded] = useState(false);
+  const [paywallExpanded, setPaywallExpanded] = useState(false);
+  const [panicWipeExpanded, setPanicWipeExpanded] = useState(false);
   const [onboardingExpanded, setOnboardingExpanded] = useState(false);
   const [badgeTestingExpanded, setBadgeTestingExpanded] = useState(false);
 
@@ -61,23 +69,121 @@ export const TestingSettings: React.FC<TestingSettingsProps> = ({ onGoBack, them
       />
 
       <ScrollView contentContainerStyle={styles.content}>
-        {/* 1. CLASSIFIED MODE DISCOVERY */}
-        <Text
-          style={[
-            styles.sectionTitle,
-            { color: theme.text, fontFamily: theme.fontHeader, marginBottom: 16 },
-          ]}
+        {/* 1. SUBSCRIPTION TIER MOCK (ACCORDION) */}
+        <TouchableOpacity
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: subscriptionExpanded ? 16 : 0,
+            paddingVertical: 8,
+          }}
+          onPress={() => {
+            setSubscriptionExpanded(!subscriptionExpanded);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }}
         >
-          Classified Mode Discovery
-        </Text>
-        <Text style={{ color: theme.subtext, fontSize: 14, marginBottom: 16 }}>
-          Toggle Classified mode discovery status for testing the unlock flow and tier progression.
-          {'\n\n'}
-          <Text style={{ fontWeight: '600' }}>Enabled = Classified has been discovered</Text>
-          {'\n'}
-          <Text style={{ fontWeight: '600' }}>Disabled = Classified is still locked</Text>
-        </Text>
-        <SettingsToggleRow
+          <Text
+            style={[
+              styles.sectionTitle,
+              { color: theme.text, fontFamily: theme.fontHeader, marginBottom: 0 },
+            ]}
+          >
+            Mock Subscription Tier
+          </Text>
+          <Ionicons
+            name={subscriptionExpanded ? 'chevron-up' : 'chevron-down'}
+            size={20}
+            color={theme.text}
+          />
+        </TouchableOpacity>
+
+        {subscriptionExpanded && (
+          <>
+            <Text style={{ color: theme.subtext, fontSize: 14, marginBottom: 16 }}>
+              Simulate different subscription tiers for testing Pro features and paywall flows.
+              {'\n\n'}
+              <Text style={{ fontWeight: '600', color: theme.accent }}>⚠️ Testing only</Text> - Does not trigger real purchases.
+            </Text>
+
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 24 }}>
+              <SettingsOptionButton
+                label="Free"
+                isSelected={subscriptionTier === 'FREE'}
+                onSelect={() => {
+                  setSubscription('FREE');
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                }}
+                theme={theme}
+                effectiveMode="HUSH"
+                classifiedTheme={classifiedTheme}
+              />
+              <SettingsOptionButton
+                label="Monthly"
+                isSelected={subscriptionTier === 'MONTHLY'}
+                onSelect={() => {
+                  setSubscription('MONTHLY');
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                }}
+                theme={theme}
+                effectiveMode="HUSH"
+                classifiedTheme={classifiedTheme}
+              />
+              <SettingsOptionButton
+                label="Yearly"
+                isSelected={subscriptionTier === 'YEARLY'}
+                onSelect={() => {
+                  setSubscription('YEARLY');
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                }}
+                theme={theme}
+                effectiveMode="HUSH"
+                classifiedTheme={classifiedTheme}
+              />
+            </View>
+          </>
+        )}
+
+        {/* 2. CLASSIFIED MODE DISCOVERY (ACCORDION) */}
+        <TouchableOpacity
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginTop: 32,
+            marginBottom: classifiedExpanded ? 16 : 0,
+            paddingVertical: 8,
+          }}
+          onPress={() => {
+            setClassifiedExpanded(!classifiedExpanded);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }}
+        >
+          <Text
+            style={[
+              styles.sectionTitle,
+              { color: theme.text, fontFamily: theme.fontHeader, marginBottom: 0 },
+            ]}
+          >
+            Classified Mode Discovery
+          </Text>
+          <Ionicons
+            name={classifiedExpanded ? 'chevron-up' : 'chevron-down'}
+            size={20}
+            color={theme.text}
+          />
+        </TouchableOpacity>
+
+        {classifiedExpanded && (
+          <>
+            <Text style={{ color: theme.subtext, fontSize: 14, marginBottom: 16 }}>
+              Toggle Classified mode discovery status for testing the unlock flow and tier progression.
+              {'\n\n'}
+              <Text style={{ fontWeight: '600' }}>Enabled = Classified has been discovered</Text>
+              {'\n'}
+              <Text style={{ fontWeight: '600' }}>Disabled = Classified is still locked</Text>
+            </Text>
+            <SettingsToggleRow
           label="Classified Mode Discovered"
           value={classifiedDiscovered}
           onToggle={(discovered) => {
@@ -124,8 +230,10 @@ export const TestingSettings: React.FC<TestingSettingsProps> = ({ onGoBack, them
             Allow hints to show again today
           </Text>
         </TouchableOpacity>
+          </>
+        )}
 
-        {/* 2. ONBOARDING (ACCORDION) */}
+        {/* 3. ONBOARDING (ACCORDION) */}
         <TouchableOpacity
           style={{
             flexDirection: 'row',
@@ -182,19 +290,42 @@ export const TestingSettings: React.FC<TestingSettingsProps> = ({ onGoBack, them
           </>
         )}
 
-        {/* 3. PAYWALL TESTING */}
-        <Text
-          style={[
-            styles.sectionTitle,
-            { color: theme.text, fontFamily: theme.fontHeader, marginTop: 32, marginBottom: 16 },
-          ]}
+        {/* 4. PAYWALL TESTING (ACCORDION) */}
+        <TouchableOpacity
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginTop: 32,
+            marginBottom: paywallExpanded ? 16 : 0,
+            paddingVertical: 8,
+          }}
+          onPress={() => {
+            setPaywallExpanded(!paywallExpanded);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }}
         >
-          Paywall Testing
-        </Text>
-        <Text style={{ color: theme.subtext, fontSize: 14, marginBottom: 16 }}>
-          Remove frequency caps to test all paywall triggers unlimited times per session.
-        </Text>
-        <SettingsToggleRow
+          <Text
+            style={[
+              styles.sectionTitle,
+              { color: theme.text, fontFamily: theme.fontHeader, marginBottom: 0 },
+            ]}
+          >
+            Paywall Testing
+          </Text>
+          <Ionicons
+            name={paywallExpanded ? 'chevron-up' : 'chevron-down'}
+            size={20}
+            color={theme.text}
+          />
+        </TouchableOpacity>
+
+        {paywallExpanded && (
+          <>
+            <Text style={{ color: theme.subtext, fontSize: 14, marginBottom: 16 }}>
+              Remove frequency caps to test all paywall triggers unlimited times per session.
+            </Text>
+            <SettingsToggleRow
           label="Unlimited Paywall Testing"
           value={unlimitedPaywallTesting}
           onToggle={(enabled) => {
@@ -320,21 +451,41 @@ export const TestingSettings: React.FC<TestingSettingsProps> = ({ onGoBack, them
             Clear dismissed triggers and session count
           </Text>
         </TouchableOpacity>
+          </>
+        )}
 
-        {/* PANIC WIPE TESTING */}
-        <Text
-          style={[
-            styles.sectionTitle,
-            {
-              color: theme.text,
-              fontFamily: theme.fontHeader,
-              marginTop: 32,
-              marginBottom: 16,
-            },
-          ]}
+        {/* 5. PANIC WIPE TESTING (ACCORDION) */}
+        <TouchableOpacity
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginTop: 32,
+            marginBottom: panicWipeExpanded ? 16 : 0,
+            paddingVertical: 8,
+          }}
+          onPress={() => {
+            setPanicWipeExpanded(!panicWipeExpanded);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }}
         >
-          Panic Wipe Testing
-        </Text>
+          <Text
+            style={[
+              styles.sectionTitle,
+              { color: theme.text, fontFamily: theme.fontHeader, marginBottom: 0 },
+            ]}
+          >
+            Panic Wipe Testing
+          </Text>
+          <Ionicons
+            name={panicWipeExpanded ? 'chevron-up' : 'chevron-down'}
+            size={20}
+            color={theme.text}
+          />
+        </TouchableOpacity>
+
+        {panicWipeExpanded && (
+          <>
 
         <Text style={{ color: theme.subtext, fontSize: 14, marginBottom: 16 }}>
           Manual trigger for testing shake gesture (works in all builds).
@@ -481,8 +632,10 @@ export const TestingSettings: React.FC<TestingSettingsProps> = ({ onGoBack, them
             </TouchableOpacity>
           </View>
         </View>
+          </>
+        )}
 
-        {/* 4. BADGE UNLOCK TESTING (ACCORDION) */}
+        {/* 6. BADGE UNLOCK TESTING (ACCORDION) */}
         <TouchableOpacity
           style={{
             flexDirection: 'row',

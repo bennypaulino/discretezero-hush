@@ -33,16 +33,56 @@ interface PrivacyVerificationClassifiedProps {
   onAskQuestion?: (question: string) => Promise<string>;
 }
 
+// MEMORY OPTIMIZATION: Consolidate typewriter states into single object
+interface TypewriterProgress {
+  connectionTextComplete: boolean;
+  connectionDetailComplete: boolean;
+  descriptionComplete: boolean;
+  step1TitleComplete: boolean;
+  step1Instruction1Complete: boolean;
+  step1Instruction2Complete: boolean;
+  step1Instruction3Complete: boolean;
+  showStep1Buttons: boolean;
+  statusDetailComplete: boolean;
+  step2Ready: boolean;
+  step2Instruction1Complete: boolean;
+  step2Instruction2Complete: boolean;
+  step2Instruction3Complete: boolean;
+  showInputField: boolean;
+}
+
+const initialTypewriterProgress: TypewriterProgress = {
+  connectionTextComplete: false,
+  connectionDetailComplete: false,
+  descriptionComplete: false,
+  step1TitleComplete: false,
+  step1Instruction1Complete: false,
+  step1Instruction2Complete: false,
+  step1Instruction3Complete: false,
+  showStep1Buttons: false,
+  statusDetailComplete: false,
+  step2Ready: false,
+  step2Instruction1Complete: false,
+  step2Instruction2Complete: false,
+  step2Instruction3Complete: false,
+  showInputField: false,
+};
+
 export function PrivacyVerificationClassified({
   onClose,
   onAskQuestion,
 }: PrivacyVerificationClassifiedProps) {
   const { isConnected } = useNetworkStatus();
   const insets = useSafeAreaInsets();
-  const { classifiedTheme } = useChatStore();
 
-  // Get current theme colors
-  const themeData = CLASSIFIED_THEMES[classifiedTheme] || CLASSIFIED_THEMES.TERMINAL_RED;
+  // MEMORY FIX: Selective subscription instead of destructuring
+  const classifiedTheme = useChatStore((state) => state.classifiedTheme);
+
+  // Get current theme colors (memoized to prevent recalculation)
+  const themeData = React.useMemo(
+    () => CLASSIFIED_THEMES[classifiedTheme] || CLASSIFIED_THEMES.TERMINAL_RED,
+    [classifiedTheme]
+  );
   const accentColor = themeData.colors.primary;
 
   const [state, setState] = useState<VerificationState>({
@@ -52,38 +92,12 @@ export function PrivacyVerificationClassified({
     networkWasDisconnected: false,
   });
 
-  const [connectionTextComplete, setConnectionTextComplete] = useState(false);
-  const [connectionDetailComplete, setConnectionDetailComplete] = useState(false);
-  const [descriptionComplete, setDescriptionComplete] = useState(false);
-  const [step1TitleComplete, setStep1TitleComplete] = useState(false);
-  const [step1Instruction1Complete, setStep1Instruction1Complete] = useState(false);
-  const [step1Instruction2Complete, setStep1Instruction2Complete] = useState(false);
-  const [step1Instruction3Complete, setStep1Instruction3Complete] = useState(false);
-  const [showStep1Buttons, setShowStep1Buttons] = useState(false);
+  // MEMORY FIX: Single state object instead of 16 separate useState calls
+  const [typewriterProgress, setTypewriterProgress] = useState<TypewriterProgress>(initialTypewriterProgress);
 
-  const [statusDetailComplete, setStatusDetailComplete] = useState(false);
-  const [step2Ready, setStep2Ready] = useState(false);
-  const [step2Instruction1Complete, setStep2Instruction1Complete] = useState(false);
-  const [step2Instruction2Complete, setStep2Instruction2Complete] = useState(false);
-  const [step2Instruction3Complete, setStep2Instruction3Complete] = useState(false);
-  const [showInputField, setShowInputField] = useState(false);
-
-  // Reset typewriter states when connection status changes
+  // MEMORY FIX: Single setState call instead of 16 separate calls
   React.useEffect(() => {
-    setConnectionTextComplete(false);
-    setConnectionDetailComplete(false);
-    setDescriptionComplete(false);
-    setStep1TitleComplete(false);
-    setStep1Instruction1Complete(false);
-    setStep1Instruction2Complete(false);
-    setStep1Instruction3Complete(false);
-    setShowStep1Buttons(false);
-    setStatusDetailComplete(false);
-    setStep2Ready(false);
-    setStep2Instruction1Complete(false);
-    setStep2Instruction2Complete(false);
-    setStep2Instruction3Complete(false);
-    setShowInputField(false);
+    setTypewriterProgress(initialTypewriterProgress);
   }, [isConnected]);
 
   // Determine current step based on network status
@@ -228,7 +242,7 @@ export function PrivacyVerificationClassified({
                 styles.statusValue,
                 { color: accentColor },
               ]}
-              onComplete={() => setConnectionTextComplete(true)}
+              onComplete={() => setTypewriterProgress(prev => ({ ...prev, connectionTextComplete: true }))}
             />
           ) : (
             <DisconnectedAlert
@@ -236,27 +250,27 @@ export function PrivacyVerificationClassified({
                 styles.statusValue,
                 { color: '#34C759' },
               ]}
-              onComplete={() => setConnectionTextComplete(true)}
+              onComplete={() => setTypewriterProgress(prev => ({ ...prev, connectionTextComplete: true }))}
             />
           )}
           {isConnected ? (
-            connectionTextComplete && (
+            typewriterProgress.connectionTextComplete && (
               <Typewriter
                 text="    Wi-Fi or cellular active"
                 style={styles.statusDetail}
                 speed={15}
-                onComplete={() => setConnectionDetailComplete(true)}
+                onComplete={() => setTypewriterProgress(prev => ({ ...prev, connectionDetailComplete: true }))}
               />
             )
           ) : (
-            connectionTextComplete && (
+            typewriterProgress.connectionTextComplete && (
               <Typewriter
                 text="    No external connections detected"
                 style={styles.statusDetail}
                 speed={25}
                 onComplete={() => {
                   // Pause 800ms before showing STEP 2
-                  setTimeout(() => setStep2Ready(true), 800);
+                  setTimeout(() => setTypewriterProgress(prev => ({ ...prev, step2Ready: true })), 800);
                 }}
               />
             )
@@ -269,55 +283,55 @@ export function PrivacyVerificationClassified({
         {/* Step Content */}
         {effectiveStep === 'instructions' && (
           <View style={styles.content}>
-            {connectionDetailComplete && (
+            {typewriterProgress.connectionDetailComplete && (
               <Typewriter
                 text="CHATGPT, CLAUDE, GEMINI — ALL REQUIRE INTERNET. CLASSIFIED DOESN'T. LET'S PROVE IT."
                 style={styles.description}
                 speed={40}
                 onComplete={() => {
                   // Pause 600ms before showing STEP 1
-                  setTimeout(() => setDescriptionComplete(true), 600);
+                  setTimeout(() => setTypewriterProgress(prev => ({ ...prev, descriptionComplete: true })), 600);
                 }}
               />
             )}
 
-            {descriptionComplete && (
+            {typewriterProgress.descriptionComplete && (
               <Typewriter
                 text="STEP 1: ENABLE AIRPLANE MODE"
                 style={[styles.stepTitle, { color: accentColor }]}
                 speed={20}
-                onComplete={() => setStep1TitleComplete(true)}
+                onComplete={() => setTypewriterProgress(prev => ({ ...prev, step1TitleComplete: true }))}
               />
             )}
 
             <View style={styles.instructionBox}>
-              {step1TitleComplete && (
+              {typewriterProgress.step1TitleComplete && (
                 <Typewriter
                   text="> Open Control Center"
                   style={styles.instruction}
                   speed={15}
-                  onComplete={() => setStep1Instruction1Complete(true)}
+                  onComplete={() => setTypewriterProgress(prev => ({ ...prev, step1Instruction1Complete: true }))}
                 />
               )}
-              {step1Instruction1Complete && (
+              {typewriterProgress.step1Instruction1Complete && (
                 <Typewriter
                   text="> Enable Airplane Mode"
                   style={styles.instruction}
                   speed={15}
-                  onComplete={() => setStep1Instruction2Complete(true)}
+                  onComplete={() => setTypewriterProgress(prev => ({ ...prev, step1Instruction2Complete: true }))}
                 />
               )}
-              {step1Instruction2Complete && (
+              {typewriterProgress.step1Instruction2Complete && (
                 <Typewriter
                   text="> Return to this screen"
                   style={styles.instruction}
                   speed={15}
-                  onComplete={() => setStep1Instruction3Complete(true)}
+                  onComplete={() => setTypewriterProgress(prev => ({ ...prev, step1Instruction3Complete: true }))}
                 />
               )}
             </View>
 
-            {step1Instruction3Complete && (
+            {typewriterProgress.step1Instruction3Complete && (
               isConnected ? (
                 <TouchableOpacity
                   style={[styles.primaryButton, { backgroundColor: accentColor }]}
@@ -347,43 +361,43 @@ export function PrivacyVerificationClassified({
 
         {effectiveStep === 'ready' && (
           <View style={styles.content}>
-            {step2Ready && (
+            {typewriterProgress.step2Ready && (
               <Typewriter
                 text="STEP 2: SUBMIT QUERY"
                 style={[styles.stepTitle, { color: accentColor }]}
                 speed={20}
-                onComplete={() => setStep2Instruction1Complete(true)}
+                onComplete={() => setTypewriterProgress(prev => ({ ...prev, step2Instruction1Complete: true }))}
               />
             )}
 
             <View style={styles.instructionBox}>
-              {step2Instruction1Complete && (
+              {typewriterProgress.step2Instruction1Complete && (
                 <Typewriter
                   text="> Enter any query below"
                   style={styles.instruction}
                   speed={15}
-                  onComplete={() => setStep2Instruction2Complete(true)}
+                  onComplete={() => setTypewriterProgress(prev => ({ ...prev, step2Instruction2Complete: true }))}
                 />
               )}
-              {step2Instruction2Complete && (
+              {typewriterProgress.step2Instruction2Complete && (
                 <Typewriter
                   text="> System will process locally"
                   style={styles.instruction}
                   speed={15}
-                  onComplete={() => setStep2Instruction3Complete(true)}
+                  onComplete={() => setTypewriterProgress(prev => ({ ...prev, step2Instruction3Complete: true }))}
                 />
               )}
-              {step2Instruction3Complete && (
+              {typewriterProgress.step2Instruction3Complete && (
                 <Typewriter
                   text="> No data exfiltration possible"
                   style={styles.instruction}
                   speed={15}
-                  onComplete={() => setShowInputField(true)}
+                  onComplete={() => setTypewriterProgress(prev => ({ ...prev, showInputField: true }))}
                 />
               )}
             </View>
 
-            {showInputField && (
+            {typewriterProgress.showInputField && (
               <>
                 <TextInput
                   style={styles.input}
