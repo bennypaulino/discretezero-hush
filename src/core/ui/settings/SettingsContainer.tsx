@@ -602,12 +602,12 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
     >
       {/* Background */}
       {effectiveMode === 'HUSH' ? (
-        <View style={StyleSheet.absoluteFill}>
+        <View style={[StyleSheet.absoluteFill, { elevation: 5 }]}>
           <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
           <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0, 0, 0, 0.3)' }]} />
         </View>
       ) : (
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.bg, opacity: 0.98 }]} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.bg, opacity: 0.98, elevation: 5 }]} />
       )}
 
       <View
@@ -616,8 +616,8 @@ export const SettingsContainer: React.FC<SettingsContainerProps> = ({
           {
             paddingTop: insets.top + 20,
             paddingBottom: insets.bottom + 20,
-            zIndex: 1, // iOS: Ensure content renders above background
-            elevation: 10, // Android: Ensure content renders above background and prevents chat bleed-through
+            zIndex: 2, // iOS: Ensure content renders above background
+            elevation: 10, // Android: Content above background (background has elevation: 5)
           },
         ]}
       >
