@@ -51,7 +51,8 @@ export const ClassifiedDiscoveryBlocker: React.FC<ClassifiedDiscoveryBlockerProp
     if (result.success) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       dismissPaywall();
-      onReturn(); // Return to Hush after purchase
+      // User earned OPERATOR access - stay in CLASSIFIED mode!
+      // Don't call onReturn() which would switch back to HUSH
     } else {
       // Show error alert (unless user cancelled)
       if (result.error !== 'Purchase cancelled') {

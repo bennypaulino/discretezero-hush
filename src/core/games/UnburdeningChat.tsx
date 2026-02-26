@@ -83,7 +83,7 @@ export const UnburdeningChat: React.FC<UnburdeningChatProps> = ({ onComplete, on
     if (!input.trim() || isTyping) return;
 
     const userMessage: ChatMessage = {
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
       role: 'user',
       text: input.trim(),
       timestamp: Date.now(),
@@ -104,7 +104,7 @@ export const UnburdeningChat: React.FC<UnburdeningChatProps> = ({ onComplete, on
       if (cancelledRef.current) return;
 
       const aiMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
         role: 'ai',
         text: response,
         timestamp: Date.now(),
