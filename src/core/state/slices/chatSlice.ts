@@ -391,7 +391,7 @@ Summary:`;
   addMessage: (text, role) => {
     const { flavor, isDecoyMode } = get();
     const newMessage: Message = {
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
       role,
       text,
       timestamp: Date.now(),
