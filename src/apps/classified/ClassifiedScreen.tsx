@@ -721,11 +721,8 @@ Type any protocol keyword to begin.`;
               if (__DEV__) console.log('[ClassifiedScreen] Badge modal onClose called');
               setNewlyUnlockedBadge(null);
 
-              // If free user dismisses backchannel badge, return them to Hush
-              // (they can't access Classified without Pro)
-              if (subscriptionTier === 'FREE' && newlyUnlockedBadge === 'backchannel') {
-                setFlavor('HUSH');
-              }
+              // User clicked DISMISS - keep them in CLASSIFIED to view paywall
+              // If they choose not to subscribe, the "RETURN TO SURFACE" button will switch them to HUSH
             }}
             onViewGallery={() => {
               if (__DEV__) console.log('[ClassifiedScreen] Badge modal onViewGallery called');
